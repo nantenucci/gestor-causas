@@ -521,7 +521,10 @@ tbody tr:hover .nota-btn { opacity: 1; }
     <div class="al-body" id="al-body"></div>
     <div class="al-footer">
       <small>Clic en una causa para abrirla</small>
-      <button class="btn-ok" onclick="cerrarAlertas()">Entendido</button>
+      <div style="display:flex;gap:8px">
+        <button class="btn-ok" style="background:var(--verde);border:none" onclick="imprimirAlertas()">&#x1F5A8; Imprimir</button>
+        <button class="btn-ok" onclick="cerrarAlertas()">Entendido</button>
+      </div>
     </div>
   </div>
 </div>
@@ -1258,6 +1261,74 @@ async function generarPDF() {
   btn.textContent = '&#x1F4C4; PDF';
   btn.disabled = false;
   toast('PDF generado &#x2713;', 'ok');
+}
+
+// ── IMPRIMIR ALERTAS ──────────────────────────────────────────────────────────
+function imprimirAlertas() {
+  const items = [];
+  causas.forEach(c => {
+    const u = calcUrg(c);
+    const v = calcVenc(c);
+    if (u.nivel <= 1) items.push({ c, tipo:'audiencia',   ...u });
+    if (v.nivel <= 1) items.push({ c, tipo:'vencimiento', ...v });
+  });
+  items.sort((a,b) => a.nivel - b.nivel || (a.dias??99) - (b.dias??99));
+  const urg  = items.filter(i => i.nivel === 0);
+  const prox = items.filter(i => i.nivel === 1);
+
+  const hoy = new Date().toLocaleDateString('es-AR', { day:'2-digit', month:'2-digit', year:'numeric' });
+
+  function filaItem(item) {
+    const diasStr = item.vencida ? 'VENCIDA' : item.dias===0 ? 'HOY' : item.dias===1 ? '1 día' : `${item.dias} días`;
+    const fecha   = item.tipo==='audiencia' ? fmtFecha(item.c.prox_audiencia) : fmtFecha(item.c.vencimiento);
+    const tipoStr = item.tipo==='audiencia' ? 'Audiencia' : 'Vencimiento';
+    const bgDias  = item.vencida ? '#FDECEA' : item.dias===0 ? '#FDECEA' : item.nivel===0 ? '#FDECEA' : '#FEF9E7';
+    const clDias  = item.vencida ? '#C0392B' : item.dias===0 ? '#C0392B' : item.nivel===0 ? '#C0392B' : '#B8860B';
+    return `
+      <div style="border:1px solid #e0e0dc;border-radius:6px;padding:10px 14px;margin-bottom:8px;display:flex;align-items:center;gap:14px;break-inside:avoid">
+        <div style="flex:1;min-width:0">
+          <div style="font-family:monospace;font-size:10px;color:#9A9A96">${escH(item.c.cuij)||'—'}</div>
+          <div style="font-size:13px;font-weight:600;margin:2px 0;color:#111110">${escH((item.c.caratula||'Sin carátula').substring(0,70))}</div>
+          <div style="font-size:11px;color:#555">${tipoStr} &middot; ${escH(item.c.imputado||'—')} &middot; ${fecha}</div>
+          ${item.c.tribunal ? `<div style="font-size:10px;color:#9A9A96;margin-top:2px">${escH(item.c.tribunal)}</div>` : ''}
+        </div>
+        <div style="font-family:monospace;font-size:13px;font-weight:700;padding:5px 10px;border-radius:4px;background:${bgDias};color:${clDias};flex-shrink:0;white-space:nowrap">${diasStr}</div>
+      </div>`;
+  }
+
+  function seccion(lista, titulo, color) {
+    if (!lista.length) return '';
+    return `
+      <div style="font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:${color};margin:18px 0 8px;padding-bottom:5px;border-bottom:2px solid ${color}">${titulo}</div>
+      ${lista.map(filaItem).join('')}`;
+  }
+
+  const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
+  <title>Alertas — ${hoy}</title>
+  <style>
+    * { box-sizing:border-box; margin:0; padding:0; }
+    body { font-family:'IBM Plex Sans',Arial,sans-serif; font-size:13px; color:#111; padding:20px 24px; }
+    @media print { body { padding:10px; } @page { size:A4 portrait; margin:15mm 12mm; } }
+  </style></head><body>
+  <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:18px;padding-bottom:12px;border-bottom:2px solid #1B3A6B">
+    <div>
+      <div style="font-family:monospace;font-size:16px;font-weight:700;color:#1B3A6B;letter-spacing:.04em">ANTENUCCI / GESTOR DE CAUSAS</div>
+      <div style="font-size:11px;color:#9A9A96;margin-top:3px">Reporte de alertas — ${hoy}</div>
+    </div>
+    <div style="text-align:right;font-family:monospace;font-size:11px;color:#9A9A96">
+      <div>${urg.length} urgente${urg.length!==1?'s':''} &nbsp;|&nbsp; ${prox.length} pr&oacute;xima${prox.length!==1?'s':''}</div>
+      <div>Total: ${items.length} alerta${items.length!==1?'s':''}</div>
+    </div>
+  </div>
+  ${seccion(urg,  '&#x1F534; Urgente — 3 d&iacute;as o menos', '#C0392B')}
+  ${seccion(prox, '&#x1F7E1; Pr&oacute;ximo — hasta 10 d&iacute;as', '#B8860B')}
+  <div style="margin-top:24px;font-size:10px;color:#ccc;text-align:center">Impreso el ${hoy} &mdash; Antenucci Gestor de Causas</div>
+  <script>window.onload=()=>{window.print();}<\/script>
+  </body></html>`;
+
+  const w = window.open('', '_blank', 'width=800,height:900');
+  w.document.write(html);
+  w.document.close();
 }
 
 // ── AUTH ──────────────────────────────────────────────────────────────────────
