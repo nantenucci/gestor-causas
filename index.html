@@ -239,7 +239,7 @@ tbody tr:hover .nota-btn { opacity: 1; }
 <div class="shell">
   <!-- TOPBAR -->
   <header class="topbar">
-    <div class="topbar-brand">ANTENUCCI <span>/ GESTOR DE CAUSAS</span></div>
+    <div class="topbar-brand">ANTENUCCI PENAL <span>/ GESTOR DE CAUSAS</span></div>
     <div class="topbar-right">
       <div class="topbar-stat">Activas: <b id="stat-total">—</b></div>
       <div class="topbar-stat">Urgentes: <b id="stat-urg">—</b></div>
@@ -890,7 +890,7 @@ async function guardarCausa() {
     }
     document.getElementById('overlay').classList.remove('open');
     renderTabla();
-    toast('Causa guardada &#x2713;', 'ok');
+    toast('Causa guardada ✓', 'ok');
   } catch(err) {
     toast('Error al guardar: ' + err.message, 'err');
   } finally {
@@ -1079,7 +1079,7 @@ async function agregarAudiencia() {
   actualizarProxAudiencia();
   document.getElementById('aud-nueva-fecha').value = '';
   document.getElementById('aud-nueva-tipo').value  = '';
-  toast('Audiencia agregada &#x2713;', 'ok');
+  toast('Audiencia agregada ✓', 'ok');
 }
 
 async function eliminarAudiencia(id) {
@@ -1127,7 +1127,7 @@ async function guardarNota() {
   if (idx >= 0) causas[idx].notas = texto;
   document.getElementById('nota-overlay').classList.remove('open');
   notaCausaId = null;
-  toast('Nota guardada &#x2713;', 'ok');
+  toast('Nota guardada ✓', 'ok');
 }
 
 // ── DRIVE ─────────────────────────────────────────────────────────────────────
@@ -1260,7 +1260,7 @@ async function generarPDF() {
   document.body.removeChild(el);
   btn.textContent = '&#x1F4C4; PDF';
   btn.disabled = false;
-  toast('PDF generado &#x2713;', 'ok');
+  toast('PDF generado ✓', 'ok');
 }
 
 // ── IMPRIMIR ALERTAS ──────────────────────────────────────────────────────────
