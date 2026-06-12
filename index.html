@@ -1247,7 +1247,7 @@ async function generarPDF() {
   document.body.appendChild(el);
 
   const btn = document.getElementById('btn-pdf');
-  btn.textContent = '&#x23F3; Generando...';
+  btn.innerHTML = '&#x23F3; Generando...';
   btn.disabled = true;
 
   await html2pdf().set({
@@ -1259,7 +1259,7 @@ async function generarPDF() {
   }).from(el).save();
 
   document.body.removeChild(el);
-  btn.textContent = '&#x1F4C4; PDF';
+  btn.innerHTML = '&#x1F4C4; PDF';
   btn.disabled = false;
   toast('PDF generado ✓', 'ok');
 }
