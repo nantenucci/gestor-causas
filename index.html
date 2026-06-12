@@ -29,7 +29,7 @@ html, body { height: 100%; overflow: hidden; background: var(--gris); font-famil
 
 /* TOPBAR */
 .topbar { grid-column: 1/-1; background: var(--azul); display: flex; align-items: center; justify-content: space-between; padding: 0 20px; border-bottom: 2px solid var(--azul2); }
-.topbar-brand { font-family: var(--mono); font-size: 13px; font-weight: 600; color: #fff; letter-spacing: .04em; }
+.topbar-brand { font-family: var(--mono); font-size: 13px; font-weight: 600; color: #fff; letter-spacing: .04em; display: flex; align-items: center; gap: 10px; }
 .topbar-brand span { color: #7BA7E0; font-weight: 400; }
 .topbar-right { display: flex; align-items: center; gap: 10px; }
 .topbar-stat { font-family: var(--mono); font-size: 11px; color: #7BA7E0; }
@@ -240,7 +240,7 @@ tbody tr:hover .nota-btn { opacity: 1; }
 <div class="shell">
   <!-- TOPBAR -->
   <header class="topbar">
-    <div class="topbar-brand">ANTENUCCI PENAL <span>/ GESTOR DE CAUSAS</span></div>
+    <div class="topbar-brand"><img src="logo.png" alt="" style="width:34px;height:34px;object-fit:contain;">ANTENUCCI PENAL <span>/ GESTOR DE CAUSAS</span></div>
     <div class="topbar-right">
       <div class="topbar-stat">Activas: <b id="stat-total">—</b></div>
       <div class="topbar-stat">Urgentes: <b id="stat-urg">—</b></div>
