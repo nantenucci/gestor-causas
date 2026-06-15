@@ -478,11 +478,12 @@ tbody tr:hover .nota-btn { opacity: 1; }
 
       <div class="ps">
         <div class="ps-title">Plazos</div>
+        <div class="aud-list" id="plazo-display"></div>
         <div style="display:flex;gap:6px;align-items:flex-end">
-          <div class="pf"><label>&#x23F3; Venc. procesal</label><input type="date" id="f-vencimiento"></div>
-          <div class="pf"><label>Gestión — fecha</label><input type="date" id="f-gest-fecha"></div>
-          <div class="pf" style="flex:1"><label>Gestión — descripción</label><input id="f-gest-tipo" placeholder="Ej: Presentar escrito / Pasar por MPA"></div>
-          <button class="btn-add-aud" style="align-self:flex-end" onclick="toast('Plazo cargado ✓','ok')">+ Agregar</button>
+          <div class="pf" style="width:140px;flex-shrink:0"><label>&#x23F3; Venc. procesal</label><input type="date" id="f-vencimiento"></div>
+          <div class="pf" style="width:140px;flex-shrink:0"><label>Gestión — fecha</label><input type="date" id="f-gest-fecha"></div>
+          <div class="pf" style="flex:1;min-width:200px"><label>Gestión — descripción</label><input id="f-gest-tipo" placeholder="Ej: Presentar escrito / Pasar por MPA"></div>
+          <button class="btn-add-aud" style="align-self:flex-end" onclick="mostrarPlazo()">+ Agregar</button>
         </div>
       </div>
 
@@ -822,6 +823,7 @@ function abrirCausa(id) {
   document.getElementById('f-vencimiento').value = c.vencimiento || '';
   document.getElementById('f-gest-fecha').value  = c.gestion_fecha || '';
   document.getElementById('f-gest-tipo').value   = c.gestion_tipo || '';
+  renderPlazoDisplay(c.vencimiento||'', c.gestion_fecha||'', c.gestion_tipo||'');
   document.getElementById('f-drive').value       = c.drive || '';
   document.getElementById('f-notas').value       = c.notas || '';
   document.getElementById('btn-elim').style.display = 'inline-block';
@@ -1038,6 +1040,30 @@ async function importarJSON(event) {
     loading(false);
     event.target.value = '';
   }
+}
+
+// ── PLAZOS ───────────────────────────────────────────────────────────────────
+function mostrarPlazo() {
+  const venc  = document.getElementById('f-vencimiento').value;
+  const gfech = document.getElementById('f-gest-fecha').value;
+  const gdesc = document.getElementById('f-gest-tipo').value.trim();
+  if (!venc && !gfech && !gdesc) { toast('Ingresá al menos un campo.', 'err'); return; }
+  renderPlazoDisplay(venc, gfech, gdesc);
+}
+function renderPlazoDisplay(venc, gfech, gdesc) {
+  const div = document.getElementById('plazo-display');
+  if (!venc && !gfech && !gdesc) { div.innerHTML = ''; return; }
+  const partes = [];
+  if (venc)  partes.push(`<span class="aud-fecha">&#x23F3; ${fmtFecha(venc)}</span>`);
+  if (gfech) partes.push(`<span class="aud-tipo">Gestión: ${fmtFecha(gfech)}</span>`);
+  if (gdesc) partes.push(`<span class="aud-tipo">${escH(gdesc)}</span>`);
+  div.innerHTML = `<div class="aud-item"><div style="flex:1;display:flex;gap:14px;align-items:center">${partes.join('')}</div><button class="aud-del" onclick="limpiarPlazo()" title="Quitar">✕</button></div>`;
+}
+function limpiarPlazo() {
+  document.getElementById('f-vencimiento').value = '';
+  document.getElementById('f-gest-fecha').value  = '';
+  document.getElementById('f-gest-tipo').value   = '';
+  document.getElementById('plazo-display').innerHTML = '';
 }
 
 // ── AUDIENCIAS ────────────────────────────────────────────────────────────────
