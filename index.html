@@ -478,10 +478,11 @@ tbody tr:hover .nota-btn { opacity: 1; }
 
       <div class="ps">
         <div class="ps-title">Plazos</div>
-        <div class="pgrid">
-          <div class="pf"><label>&#x23F3; Vencimiento procesal</label><input type="date" id="f-vencimiento"></div>
-          <div class="pf"><label>Gestión — fecha</label><input type="date" id="f-gest-fecha"></div>
-          <div class="pf full"><label>Gestión — descripción</label><input id="f-gest-tipo" placeholder="Ej: Presentar escrito / Pasar por MPA"></div>
+        <div class="aud-nueva" style="grid-template-columns:140px 140px 1fr auto">
+          <input type="date" id="f-vencimiento" title="Vencimiento procesal">
+          <input type="date" id="f-gest-fecha" title="Gestión — fecha">
+          <input id="f-gest-tipo" placeholder="Gestión — descripción">
+          <button class="btn-add-aud" onclick="guardarCausa()">+ Agregar</button>
         </div>
       </div>
 
