@@ -75,7 +75,6 @@ tbody tr:hover { background: var(--azul-l); }
 tbody td { padding: 6px 10px; vertical-align: middle; white-space: nowrap; max-width: 160px; overflow: hidden; text-overflow: ellipsis; font-size: 11px; }
 /* ancho fijo por columna */
 th:nth-child(1), td:nth-child(1) { width: 90px; }   /* URGENCIA */
-th:nth-child(2), td:nth-child(2) { width: 100px; }  /* VENCIMIENTO */
 th:nth-child(3), td:nth-child(3) { width: 110px; }  /* N° CAUSA */
 th:nth-child(4), td:nth-child(4) { max-width:160px; } /* CARÁTULA */
 th:nth-child(5), td:nth-child(5) { max-width:130px; } /* IMPUTADO */
@@ -307,7 +306,6 @@ tbody tr:hover .nota-btn { opacity: 1; }
         <thead>
           <tr>
             <th onclick="sortBy('urgNivel')"  data-col="urgNivel">URGENCIA <span class="sort-arrow">↕</span></th>
-            <th onclick="sortBy('vencNivel')" data-col="vencNivel">VENCIMIENTO <span class="sort-arrow">↕</span></th>
             <th onclick="sortBy('cuij')"      data-col="cuij">N° CAUSA <span class="sort-arrow">↕</span></th>
             <th onclick="sortBy('caratula')"  data-col="caratula">CARÁTULA <span class="sort-arrow">↕</span></th>
             <th onclick="sortBy('imputado')"  data-col="imputado">IMPUTADO/S <span class="sort-arrow">↕</span></th>
@@ -742,7 +740,6 @@ function renderTabla() {
 
   tbody.innerHTML = vis.map(c => {
     const urgB = c._urg.cls ? `<span class="badge ${c._urg.cls}">${c._urg.label}</span>` : '<span style="color:var(--gris3)">—</span>';
-    const vncB = c._venc.cls ? `<span class="badge ${c._venc.cls}">${c._venc.label}</span>` : '<span style="color:var(--gris3)">—</span>';
     const dias = c._urg.dias !== undefined ? `${c._urg.dias}d` : '—';
     const estCls = c.estado === 'Juicio Oral' ? 'juicio' : c.estado === 'Ejecución Penal' ? 'ejecucion' : '';
     const privBadge = c.privado === 'SÍ'         ? `<span class="priv-badge detenido">&#x1F512; Det.</span>`
@@ -751,7 +748,6 @@ function renderTabla() {
                     : `<span style="color:var(--gris3)">—</span>`;
     return `<tr onclick="abrirCausa('${c.id}')">
       <td>${urgB}</td>
-      <td>${vncB}</td>
       <td class="cuij-mono">${escH(c.cuij)||'—'}</td>
       <td title="${escH(c.caratula)}">${escH(c.caratula)||'—'}</td>
       <td title="${escH(c.imputado)}">${escH(c.imputado)||'—'}</td>
