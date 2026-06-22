@@ -663,15 +663,12 @@ function nivelFecha(fechaStr) {
 }
 
 function calcUrg(c) {
-  const aud  = nivelFecha(c.prox_audiencia);
-  const gest = nivelFecha(c.gestion_fecha);
-  const ganador = aud.nivel <= gest.nivel ? aud : gest;
-  const sufijo  = (aud.nivel > gest.nivel && gest.nivel < 99) ? ' ✦' : '';
-  if (ganador.nivel === 99) return { label:'—', nivel:99, cls:'', dias:undefined };
-  if (ganador.vencida)      return { label:'VENCIDA'+sufijo, nivel:0, cls:'urg',  dias:ganador.dias, vencida:true };
-  if (ganador.nivel === 0)  return { label:'URGENTE'+sufijo, nivel:0, cls:'urg',  dias:ganador.dias };
-  if (ganador.nivel === 1)  return { label:'PRÓXIMO'+sufijo, nivel:1, cls:'prox', dias:ganador.dias };
-  return                           { label:'OK'+sufijo,      nivel:2, cls:'ok',   dias:ganador.dias };
+  const aud = nivelFecha(c.prox_audiencia);
+  if (aud.nivel === 99) return { label:'—', nivel:99, cls:'', dias:undefined };
+  if (aud.vencida)      return { label:'VENCIDA', nivel:0, cls:'urg',  dias:aud.dias, vencida:true };
+  if (aud.nivel === 0)  return { label:'URGENTE', nivel:0, cls:'urg',  dias:aud.dias };
+  if (aud.nivel === 1)  return { label:'PRÓXIMO', nivel:1, cls:'prox', dias:aud.dias };
+  return                       { label:'OK',      nivel:2, cls:'ok',   dias:aud.dias };
 }
 
 function calcVenc(c) {
