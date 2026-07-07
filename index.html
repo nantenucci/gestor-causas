@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es" translate="no">
 <head>
 <meta charset="UTF-8">
@@ -88,6 +88,7 @@ th:nth-child(11),td:nth-child(11){ max-width:140px; } /* TRIBUNAL */
 .badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border-radius: 3px; font-size: 10px; font-weight: 600; font-family: var(--mono); white-space: nowrap; }
 .badge::before { content:''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 .badge.urg  { background: var(--rojo-l); color: var(--rojo); }
+.badge.urg-venc { background: var(--rojo); color: #fff; }
 .badge.prox { background: var(--amar-l); color: var(--amar); }
 .badge.ok   { background: var(--verde-l); color: var(--verde); }
 .badge.venc-urg { background: #FDE8FF; color: #86198F; }
@@ -665,7 +666,7 @@ function nivelFecha(fechaStr) {
 function calcUrg(c) {
   const aud = nivelFecha(c.prox_audiencia);
   if (aud.nivel === 99) return { label:'—', nivel:99, cls:'', dias:undefined };
-  if (aud.vencida)      return { label:'VENCIDA', nivel:0, cls:'urg',  dias:aud.dias, vencida:true };
+  if (aud.vencida)      return { label:'VENCIDA', nivel:0, cls:'urg-venc',  dias:aud.dias, vencida:true };
   if (aud.nivel === 0)  return { label:'URGENTE', nivel:0, cls:'urg',  dias:aud.dias };
   if (aud.nivel === 1)  return { label:'PRÓXIMO', nivel:1, cls:'prox', dias:aud.dias };
   return                       { label:'OK',      nivel:2, cls:'ok',   dias:aud.dias };
