@@ -664,23 +664,23 @@ function nivelFecha(fechaStr) {
 }
 
 function calcUrg(c) {
-  const aud = nivelFecha(c.prox_audiencia);
-  if (aud.nivel === 99) return { label:'—', nivel:99, cls:'', dias:undefined };
-  if (aud.vencida)      return { label:'VENCIDA', nivel:0, cls:'urg-venc',  dias:aud.dias, vencida:true };
-  if (aud.nivel === 0)  return { label:'URGENTE', nivel:0, cls:'urg',  dias:aud.dias };
-  if (aud.nivel === 1)  return { label:'PRÓXIMO', nivel:1, cls:'prox', dias:aud.dias };
-  return                       { label:'OK',      nivel:2, cls:'ok',   dias:aud.dias };
+  const aud  = nivelFecha(c.prox_audiencia);
+  const venc = nivelFecha(c.vencimiento);
+  // Tomar el evento más urgente (menor nivel, luego menor días)
+  let r, tipo;
+  if (aud.nivel < venc.nivel || (aud.nivel === venc.nivel && (aud.dias??99) <= (venc.dias??99))) {
+    r = aud; tipo = 'audiencia';
+  } else {
+    r = venc; tipo = 'plazo';
+  }
+  if (r.nivel === 99) return { label:'—', nivel:99, cls:'', dias:undefined, tipo };
+  if (r.vencida)      return { label:'VENCIDA', nivel:0, cls:'urg-venc', dias:r.dias, vencida:true, tipo };
+  if (r.nivel === 0)  return { label:'URGENTE', nivel:0, cls:'urg',      dias:r.dias, tipo };
+  if (r.nivel === 1)  return { label:'PRÓXIMO', nivel:1, cls:'prox',     dias:r.dias, tipo };
+  return                     { label:'OK',      nivel:2, cls:'ok',       dias:r.dias, tipo };
 }
 
-function calcVenc(c) {
-  if (!c.vencimiento) return { label:'—', nivel:99, cls:'', dias:undefined };
-  const r = nivelFecha(c.vencimiento);
-  if (r.vencida)    return { label:'VENCIDA',     nivel:0, cls:'venc-urg', dias:r.dias, vencida:true };
-  if (r.nivel === 0) return { label:'VENCE YA',   nivel:0, cls:'venc-urg', dias:r.dias };
-  if (r.nivel === 1) return { label:'VENCE PRONTO',nivel:1, cls:'venc',    dias:r.dias };
-  if (r.nivel === 2) return { label:'VENC. OK',   nivel:2, cls:'venc',     dias:r.dias };
-  return                    { label:'—',           nivel:99, cls:'',        dias:undefined };
-}
+function calcVenc(c) { return calcUrg(c); }
 
 // ── CARGA DESDE SUPABASE ──────────────────────────────────────────────────────
 async function cargar() {
@@ -903,17 +903,17 @@ async function eliminarCausa() {
 }
 
 // ── ALERTAS ───────────────────────────────────────────────────────────────────
+function buildItems() {
+  return causas
+    .map(c => ({ c, ...calcUrg(c) }))
+    .filter(i => i.nivel <= 1)
+    .sort((a,b) => a.nivel - b.nivel || (a.dias??99) - (b.dias??99));
+}
+
 function mostrarAlertas() {
-  const items = [];
-  causas.forEach(c => {
-    const u = calcUrg(c);
-    const v = calcVenc(c);
-    if (u.nivel <= 1) items.push({ c, tipo:'audiencia',   ...u });
-    if (v.nivel <= 1) items.push({ c, tipo:'vencimiento', ...v });
-  });
+  const items = buildItems();
   if (!items.length) return;
 
-  items.sort((a,b) => a.nivel - b.nivel || (a.dias??99) - (b.dias??99));
   const urg  = items.filter(i => i.nivel === 0);
   const prox = items.filter(i => i.nivel === 1);
   const total = items.length;
@@ -923,17 +923,17 @@ function mostrarAlertas() {
 
   function renderGrupo(lista, titulo, cls) {
     if (!lista.length) return '';
-    const ico = { audiencia:'📅', vencimiento:'&#x23F3;' };
-    const et  = { audiencia:'Audiencia', vencimiento:'Vencimiento' };
+    const ico = { audiencia:'📅', plazo:'&#x23F3;' };
+    const et  = { audiencia:'Audiencia', plazo:'Plazo' };
     return `<div class="al-grupo ${cls}">${titulo}</div>` + lista.map(item => {
       const diasStr = item.vencida ? 'VENCIDA' : item.dias===0 ? 'HOY' : item.dias===1 ? '1 día' : `${item.dias} días`;
       const fecha = item.tipo==='audiencia' ? fmtFecha(item.c.prox_audiencia) : fmtFecha(item.c.vencimiento);
       return `<div class="al-item" onclick="cerrarAlertas();abrirCausa('${item.c.id}')">
-        <div class="al-icon ${item.cls}">${ico[item.tipo]}</div>
+        <div class="al-icon ${item.cls}">${ico[item.tipo]||'📋'}</div>
         <div class="al-body-txt">
           <div class="al-cuij">${escH(item.c.cuij)||'—'}</div>
           <div class="al-causa">${escH((item.c.caratula||'Sin carátula').substring(0,60))}</div>
-          <div class="al-det">${et[item.tipo]} · ${escH(item.c.imputado||'—')} · ${fecha}</div>
+          <div class="al-det">${et[item.tipo]||'Tarea'} · ${escH(item.c.imputado||'—')} · ${fecha}</div>
         </div>
         <div class="al-dias ${item.cls}">${diasStr}</div>
       </div>`;
@@ -948,22 +948,14 @@ function mostrarAlertas() {
 }
 
 function abrirAlertas() {
-  // Recalcular y mostrar siempre (aunque no haya alertas, mostrar estado vacío)
-  const items = [];
-  causas.forEach(c => {
-    const u = calcUrg(c);
-    const v = calcVenc(c);
-    if (u.nivel <= 1) items.push({ c, tipo:'audiencia',   ...u });
-    if (v.nivel <= 1) items.push({ c, tipo:'vencimiento', ...v });
-  });
+  const items = buildItems();
   if (!items.length) {
     document.getElementById('al-subtitulo').textContent = 'Sin alertas — todo en orden &#x2713;';
-    document.getElementById('al-body').innerHTML = '<div style="text-align:center;padding:40px 20px;color:var(--gris3);font-size:14px">✅ No hay audiencias ni vencimientos urgentes.</div>';
+    document.getElementById('al-body').innerHTML = '<div style="text-align:center;padding:40px 20px;color:var(--gris3);font-size:14px">✅ No hay audiencias ni plazos urgentes.</div>';
     document.getElementById('al-overlay').classList.add('open');
     return;
   }
   mostrarAlertas();
-  document.getElementById('al-overlay').classList.add('open');
 }
 
 function cerrarAlertas() { document.getElementById('al-overlay').classList.remove('open'); }
@@ -1268,14 +1260,7 @@ async function generarPDF() {
 
 // ── IMPRIMIR ALERTAS ──────────────────────────────────────────────────────────
 function imprimirAlertas() {
-  const items = [];
-  causas.forEach(c => {
-    const u = calcUrg(c);
-    const v = calcVenc(c);
-    if (u.nivel <= 1) items.push({ c, tipo:'audiencia',   ...u });
-    if (v.nivel <= 1) items.push({ c, tipo:'vencimiento', ...v });
-  });
-  items.sort((a,b) => a.nivel - b.nivel || (a.dias??99) - (b.dias??99));
+  const items = buildItems();
   const urg  = items.filter(i => i.nivel === 0);
   const prox = items.filter(i => i.nivel === 1);
 
@@ -1284,7 +1269,7 @@ function imprimirAlertas() {
   function filaItem(item) {
     const diasStr = item.vencida ? 'VENCIDA' : item.dias===0 ? 'HOY' : item.dias===1 ? '1 día' : `${item.dias} días`;
     const fecha   = item.tipo==='audiencia' ? fmtFecha(item.c.prox_audiencia) : fmtFecha(item.c.vencimiento);
-    const tipoStr = item.tipo==='audiencia' ? 'Audiencia' : 'Vencimiento';
+    const tipoStr = item.tipo==='audiencia' ? 'Audiencia' : 'Plazo';
     const bgDias  = item.vencida ? '#FDECEA' : item.dias===0 ? '#FDECEA' : item.nivel===0 ? '#FDECEA' : '#FEF9E7';
     const clDias  = item.vencida ? '#C0392B' : item.dias===0 ? '#C0392B' : item.nivel===0 ? '#C0392B' : '#B8860B';
     return `
