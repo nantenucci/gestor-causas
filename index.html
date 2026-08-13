@@ -252,6 +252,7 @@ tbody tr:hover .nota-btn { opacity: 1; }
       <div class="topbar-stat">Activas: <b id="stat-total">—</b></div>
       <div class="topbar-stat">Urgentes: <b id="stat-urg">—</b></div>
       <button class="tb-btn" onclick="abrirAlertas()">&#x1F514; Alertas</button>
+      <button class="tb-btn" id="btn-pjn" onclick="abrirPjn()">&#x1F3DB;&#xFE0F; PJN</button>
       <button class="tb-btn" onclick="exportarJSON()">&#x1F4BE; Backup</button>
       <button class="tb-btn" onclick="document.getElementById('imp-input').click()">&#x1F4C2; Restaurar</button>
       <input type="file" id="imp-input" accept=".json" style="display:none" onchange="importarJSON(event)">
@@ -527,6 +528,21 @@ tbody tr:hover .nota-btn { opacity: 1; }
   </div>
 </div>
 
+<!-- PANEL NOVEDADES PJN -->
+<div class="al-overlay" id="pjn-overlay" onclick="cerrarPjn(event)">
+  <div class="al-modal" onclick="event.stopPropagation()">
+    <div class="al-header">
+      <div><h2>&#x1F3DB;&#xFE0F; Novedades PJN</h2><p id="pjn-subtitulo"></p></div>
+      <button class="btn-x" onclick="cerrarPjn()" style="color:var(--negro)">×</button>
+    </div>
+    <div class="al-body" id="pjn-body"></div>
+    <div class="al-footer">
+      <small>Clic en una novedad para abrirla en el Portal PJN</small>
+      <button class="btn-ok" onclick="cerrarPjn()">Entendido</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL NOTA RÁPIDA -->
 <div class="nota-overlay" id="nota-overlay" onclick="cerrarNota(event)">
   <div class="nota-modal" onclick="event.stopPropagation()">
@@ -707,6 +723,7 @@ async function cargar() {
   causas = data || [];
   renderTabla();
   mostrarAlertas();
+  cargarEventosPjn();
 }
 
 // ── RENDER TABLA ─────────────────────────────────────────────────────────
@@ -969,6 +986,55 @@ function abrirAlertas() {
 }
 
 function cerrarAlertas(e) { cerrarModal('al-overlay', e); }
+
+// ── NOVEDADES PJN ────────────────────────────────────────────────────────
+let eventosPjn = [];
+
+async function cargarEventosPjn() {
+  const { data, error } = await db.from('eventos_pjn').select('*').order('scraped_at', { ascending: false }).limit(100);
+  if (error) { console.error('Error al cargar eventos PJN:', error.message); return; }
+  eventosPjn = data || [];
+  actualizarBadgePjn();
+}
+
+function actualizarBadgePjn() {
+  const btn = document.getElementById('btn-pjn');
+  if (!btn) return;
+  const noLeidos = eventosPjn.filter(e => !e.leido).length;
+  btn.innerHTML = '&#x1F3DB;&#xFE0F; PJN' + (noLeidos ? ` <b>${noLeidos}</b>` : '');
+}
+
+function mostrarEventosPjn() {
+  const noLeidos = eventosPjn.filter(e => !e.leido).length;
+  document.getElementById('pjn-subtitulo').textContent = eventosPjn.length
+    ? `${eventosPjn.length} evento${eventosPjn.length !== 1 ? 's' : ''} — ${noLeidos} sin leer`
+    : '';
+
+  document.getElementById('pjn-body').innerHTML = eventosPjn.length
+    ? eventosPjn.map(ev => `
+      <div class="al-item" style="${ev.leido ? 'opacity:.55' : ''}" onclick="marcarLeidoPjn('${ev.id}')${ev.link_causa ? `;window.open('${escH(ev.link_causa)}','_blank')` : ''}">
+        <div class="al-icon">${ev.tipo_evento === 'Notificación' ? '&#x1F514;' : '&#x1F4C4;'}</div>
+        <div class="al-body-txt">
+          <div class="al-cuij">${escH(ev.expediente)}</div>
+          <div class="al-causa">${escH((ev.caratula || '').substring(0, 70))}</div>
+          <div class="al-det">${escH(ev.tipo_evento || 'Evento')} · ${escH(ev.fecha_label || '')}</div>
+        </div>
+      </div>`).join('')
+    : '<div style="text-align:center;padding:40px 20px;color:var(--gris3);font-size:14px">Sin novedades del PJN todavía.</div>';
+
+  document.getElementById('pjn-overlay').classList.add('open');
+}
+
+function abrirPjn() { mostrarEventosPjn(); }
+function cerrarPjn(e) { cerrarModal('pjn-overlay', e); }
+
+async function marcarLeidoPjn(id) {
+  const ev = eventosPjn.find(e => e.id === id);
+  if (!ev || ev.leido) return;
+  ev.leido = true;
+  actualizarBadgePjn();
+  await db.from('eventos_pjn').update({ leido: true }).eq('id', id);
+}
 
 // ── IMPORTAR / EXPORTAR ──────────────────────────────────────────────────
 function exportarJSON() {
