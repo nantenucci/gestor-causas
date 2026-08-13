@@ -98,8 +98,9 @@ async function main() {
 
   await browser.close();
 
-  const eventos = parseEventos(rowsData);
-  console.log(`Encontrados ${eventos.length} eventos`);
+  const eventosConDuplicados = parseEventos(rowsData);
+  const eventos = [...new Map(eventosConDuplicados.map((e) => [e.id, e])).values()];
+  console.log(`Encontrados ${eventosConDuplicados.length} eventos (${eventos.length} unicos)`);
 
   if (eventos.length) {
     const { error } = await supabase.from('eventos_pjn').upsert(eventos, { onConflict: 'id' });
