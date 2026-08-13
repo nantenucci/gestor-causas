@@ -1,0 +1,33 @@
+name: Sync PJN
+
+on:
+  schedule:
+    - cron: '0 12,15,18,21 * * 1-5'
+  workflow_dispatch: {}
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Instalar dependencias
+        working-directory: scripts
+        run: npm install
+
+      - name: Instalar navegador Playwright
+        working-directory: scripts
+        run: npx playwright install --with-deps chromium
+
+      - name: Sincronizar eventos PJN
+        working-directory: scripts
+        run: node sync-pjn.mjs
+        env:
+          PJN_USER: ${{ secrets.PJN_USER }}
+          PJN_PASS: ${{ secrets.PJN_PASS }}
+          SUPABASE_URL: https://dzbbswphrqgmdndtvxzx.supabase.co
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
