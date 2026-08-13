@@ -24,7 +24,7 @@ function parseEventos(rowsData) {
     const eid = url.searchParams.get('eid');
     if (!eid) return null;
 
-    const m = (ariaLabel || '').match(/Tipo de evento:\s*([^.]+)\.\s*Expediente\s+(\S+)\s*-\s*(.+)/s);
+    const m = (ariaLabel || '').match(/Tipo de evento:\s*([^.]+)\.\s*Expediente\s+(.+?)\s-\s(.+)/s);
     const tipo_evento = m ? m[1].trim() : null;
     const expediente = m ? m[2].trim() : null;
     const caratula = m ? m[3].trim() : null;
