@@ -44,6 +44,20 @@ function parseEventos(rowsData) {
   }).filter(Boolean);
 }
 
+async function diagnosticar(page, etiqueta) {
+  try {
+    console.log(`--- DIAGNOSTICO (${etiqueta}) ---`);
+    console.log('URL actual:', page.url());
+    const texto = await page.locator('body').innerText();
+    console.log('Texto visible de la pagina:');
+    console.log(texto.slice(0, 3000));
+    await page.screenshot({ path: 'debug.png', fullPage: true });
+    console.log('Screenshot guardado en scripts/debug.png');
+  } catch (e) {
+    console.log('No se pudo generar el diagnostico:', e.message);
+  }
+}
+
 async function main() {
   const browser = await chromium.launch();
   const page = await browser.newPage();
@@ -54,11 +68,23 @@ async function main() {
     await page.getByLabel('Usuario').fill(PJN_USER);
     await page.getByLabel('Contraseña').fill(PJN_PASS);
     await page.getByRole('button', { name: 'Ingresar' }).click();
-    await page.waitForURL('**/inicio', { timeout: 30000 });
+    try {
+      await page.waitForURL('**/inicio', { timeout: 30000 });
+    } catch (e) {
+      await diagnosticar(page, 'fallo esperando redireccion post-login');
+      await browser.close();
+      throw e;
+    }
   }
 
   const grid = page.getByRole('grid', { name: 'Listado de eventos' });
-  await grid.waitFor({ timeout: 30000 });
+  try {
+    await grid.waitFor({ timeout: 30000 });
+  } catch (e) {
+    await diagnosticar(page, 'fallo esperando grid de eventos');
+    await browser.close();
+    throw e;
+  }
 
   const rows = await grid.getByRole('row').all();
   const rowsData = [];
