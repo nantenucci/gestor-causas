@@ -31,3 +31,11 @@ jobs:
           PJN_PASS: ${{ secrets.PJN_PASS }}
           SUPABASE_URL: https://dzbbswphrqgmdndtvxzx.supabase.co
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+
+      - name: Subir captura de diagnostico
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-screenshot
+          path: scripts/debug.png
+          if-no-files-found: ignore
