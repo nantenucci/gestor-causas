@@ -114,11 +114,20 @@ async function main() {
   }
 
   // La lista de "Entradas" queda en caché de la sesión hasta que se pulsa
-  // "Refrescar"; sin este clic el scraper lee eventos viejos.
+  // "Refrescar"; sin este clic el scraper lee eventos viejos. Además, tras
+  // el clic la grilla se actualiza de forma asincrónica, así que esperamos
+  // a que su contenido deje de cambiar antes de leerla (si no, hay carrera
+  // entre la lectura y el refresco y se cuelan filas viejas).
   try {
     await page.getByRole('button', { name: /refrescar/i }).click({ timeout: 10000 });
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(1500);
+    let previo = null;
+    for (let i = 0; i < 8; i++) {
+      await page.waitForTimeout(1000);
+      const actual = await grid.innerText();
+      if (actual === previo) break;
+      previo = actual;
+    }
   } catch (e) {
     console.log('No se pudo hacer clic en Refrescar:', e.message);
   }
