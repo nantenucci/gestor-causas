@@ -12,6 +12,32 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 const HORA = /^\d{1,2}:\d{2}$/;
 const DIA_MES = /^\d{1,2}\s+[a-záéíóúñ]{3,4}\.?$/i;
 
+const MESES = {
+  ene: 0, feb: 1, mar: 2, abr: 3, may: 4, jun: 5,
+  jul: 6, ago: 7, sep: 8, set: 8, oct: 9, nov: 10, dic: 11,
+};
+
+// La grilla del PJN no muestra el año, así que lo inferimos a partir de "ahora":
+// si la fecha calculada cae muy en el futuro, es del año anterior.
+function parseFechaOrden(fecha_label, ahora = new Date()) {
+  if (!fecha_label) return null;
+  if (HORA.test(fecha_label)) {
+    const [h, min] = fecha_label.split(':').map(Number);
+    return new Date(Date.UTC(ahora.getUTCFullYear(), ahora.getUTCMonth(), ahora.getUTCDate(), h, min)).toISOString();
+  }
+  const m = fecha_label.match(/^(\d{1,2})\s+([a-záéíóúñ]{3,4})\.?$/i);
+  if (!m) return null;
+  const dia = Number(m[1]);
+  const mesKey = m[2].toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').slice(0, 3);
+  const mes = MESES[mesKey];
+  if (mes === undefined) return null;
+  let fecha = new Date(Date.UTC(ahora.getUTCFullYear(), mes, dia, 12, 0, 0));
+  if (fecha.getTime() - ahora.getTime() > 30 * 24 * 60 * 60 * 1000) {
+    fecha = new Date(Date.UTC(ahora.getUTCFullYear() - 1, mes, dia, 12, 0, 0));
+  }
+  return fecha.toISOString();
+}
+
 function parseEventos(rowsData) {
   return rowsData.map(({ ariaLabel, href, texto }) => {
     if (!href) return null;
@@ -38,6 +64,7 @@ function parseEventos(rowsData) {
       caratula,
       tipo_evento,
       fecha_label,
+      fecha_orden: parseFechaOrden(fecha_label),
       link_causa: href,
       scraped_at: new Date().toISOString(),
     };

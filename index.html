@@ -991,7 +991,7 @@ function cerrarAlertas(e) { cerrarModal('al-overlay', e); }
 let eventosPjn = [];
 
 async function cargarEventosPjn() {
-  const { data, error } = await db.from('eventos_pjn').select('*').order('scraped_at', { ascending: false }).limit(100);
+  const { data, error } = await db.from('eventos_pjn').select('*').order('fecha_orden', { ascending: false, nullsFirst: false }).order('scraped_at', { ascending: false }).limit(100);
   if (error) { console.error('Error al cargar eventos PJN:', error.message); return; }
   eventosPjn = data || [];
   actualizarBadgePjn();
