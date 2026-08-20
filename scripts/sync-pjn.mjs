@@ -153,6 +153,14 @@ async function main() {
     for (const b of botonesPag) {
       console.log('DIAG: boton ->', await b.getAttribute('aria-label'), '| disabled=', await b.isDisabled());
     }
+    console.log('DIAG: filas crudas (ariaLabel + fecha_label):');
+    for (const r of rowsData) {
+      const lineas = (r.texto || '').split('\n').map((l) => l.trim()).filter(Boolean);
+      const fl = lineas.find((l) => HORA.test(l) || DIA_MES.test(l)) || null;
+      console.log('  -', fl, '|', (r.ariaLabel || '').slice(0, 90));
+    }
+    await page.screenshot({ path: 'debug.png', fullPage: true });
+    console.log('DIAG: screenshot guardado siempre (no solo en error)');
   } catch (e) {
     console.log('DIAG: fallo al inspeccionar paginacion:', e.message);
   }
