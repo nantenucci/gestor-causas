@@ -142,33 +142,23 @@ async function main() {
     rowsData.push({ ariaLabel, texto, href });
   }
 
-  // DIAGNOSTICO TEMPORAL: sospecha de paginacion no manejada.
-  try {
-    console.log(`DIAG: filas leidas en el grid = ${rows.length}`);
-    const bodyText = await page.locator('body').innerText();
-    const paginador = bodyText.match(/\d+\s*[-–]\s*\d+\s*(de|of)\s*\d+/i);
-    console.log('DIAG: texto de paginador encontrado =', paginador ? paginador[0] : '(ninguno)');
-    const botonesPag = await page.getByRole('button', { name: /siguiente|next|página|pagina/i }).all();
-    console.log(`DIAG: botones de paginacion encontrados = ${botonesPag.length}`);
-    for (const b of botonesPag) {
-      console.log('DIAG: boton ->', await b.getAttribute('aria-label'), '| disabled=', await b.isDisabled());
-    }
-    console.log('DIAG: filas crudas (ariaLabel + fecha_label):');
-    for (const r of rowsData) {
-      const lineas = (r.texto || '').split('\n').map((l) => l.trim()).filter(Boolean);
-      const fl = lineas.find((l) => HORA.test(l) || DIA_MES.test(l)) || null;
-      console.log('  -', fl, '|', (r.ariaLabel || '').slice(0, 90));
-    }
-    await page.screenshot({ path: 'debug.png', fullPage: true });
-    console.log('DIAG: screenshot guardado siempre (no solo en error)');
-  } catch (e) {
-    console.log('DIAG: fallo al inspeccionar paginacion:', e.message);
-  }
-
   await browser.close();
 
   const eventosConDuplicados = parseEventos(rowsData);
-  const eventos = [...new Map(eventosConDuplicados.map((e) => [e.id, e])).values()];
+
+  // El portal lista el mismo evento (mismo eid) mas de una vez cuando tiene
+  // varios documentos asociados, y cada fila puede traer una fecha distinta
+  // (la del documento que le toco, no necesariamente la mas reciente). Nos
+  // quedamos con la fila de fecha_orden mas nueva por id, no con la ultima
+  // que aparezca en el grid, para no perder actualizaciones reales.
+  const porId = new Map();
+  for (const e of eventosConDuplicados) {
+    const previo = porId.get(e.id);
+    if (!previo || (e.fecha_orden && (!previo.fecha_orden || e.fecha_orden > previo.fecha_orden))) {
+      porId.set(e.id, e);
+    }
+  }
+  const eventos = [...porId.values()];
   console.log(`Encontrados ${eventosConDuplicados.length} eventos (${eventos.length} unicos)`);
 
   if (eventos.length) {
