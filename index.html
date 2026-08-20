@@ -740,7 +740,7 @@ function renderTabla() {
 
   let vis = causas.map(c => {
     const u = calcUrg(c);
-    return { ...c, urgNivel: u.nivel, _urg: u };
+    return { ...c, urgNivel: u.nivel, dias: u.dias, _urg: u };
   });
 
   if (filtroUrgencia !== 'todos') vis = vis.filter(c =>
