@@ -142,6 +142,21 @@ async function main() {
     rowsData.push({ ariaLabel, texto, href });
   }
 
+  // DIAGNOSTICO TEMPORAL: sospecha de paginacion no manejada.
+  try {
+    console.log(`DIAG: filas leidas en el grid = ${rows.length}`);
+    const bodyText = await page.locator('body').innerText();
+    const paginador = bodyText.match(/\d+\s*[-–]\s*\d+\s*(de|of)\s*\d+/i);
+    console.log('DIAG: texto de paginador encontrado =', paginador ? paginador[0] : '(ninguno)');
+    const botonesPag = await page.getByRole('button', { name: /siguiente|next|página|pagina/i }).all();
+    console.log(`DIAG: botones de paginacion encontrados = ${botonesPag.length}`);
+    for (const b of botonesPag) {
+      console.log('DIAG: boton ->', await b.getAttribute('aria-label'), '| disabled=', await b.isDisabled());
+    }
+  } catch (e) {
+    console.log('DIAG: fallo al inspeccionar paginacion:', e.message);
+  }
+
   await browser.close();
 
   const eventosConDuplicados = parseEventos(rowsData);
