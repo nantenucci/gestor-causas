@@ -177,15 +177,25 @@ th:nth-child(10),td:nth-child(10){ max-width:140px; } /* TRIBUNAL */
 .priv-badge.domicilio { background: var(--amar-l); color: var(--amar); }
 .priv-badge.libre     { background: var(--verde-l); color: var(--verde); }
 
-/* AGENDA EN PANEL */
-.aud-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
-.aud-item { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 6px; background: var(--gris); border: 1px solid var(--borde); }
-.aud-item.hecho { opacity: .55; }
+/* AGENDA EN PANEL (bitácora, lista única con semáforo de plazos) */
+.aud-list { border: 1px solid var(--borde); border-radius: 6px; overflow: hidden; margin-bottom: 10px; }
+.aud-item { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-bottom: 1px solid var(--borde); background: #fff; }
+.aud-item:last-child { border-bottom: none; }
+.aud-item.hecho { background: var(--gris); }
 .aud-check { flex-shrink: 0; width: 15px; height: 15px; cursor: pointer; accent-color: var(--verde); }
-.aud-fecha { font-family: var(--mono); font-size: 11px; font-weight: 600; color: var(--azul); flex-shrink: 0; }
-.aud-item.hecho .aud-fecha { color: var(--gris3); }
+.aud-dot { flex-shrink: 0; width: 8px; height: 8px; border-radius: 50%; }
+.aud-dot.urg  { background: var(--rojo); }
+.aud-dot.prox { background: var(--amar); }
+.aud-dot.ok   { background: var(--verde); }
+.aud-item.hecho .aud-dot { background: var(--gris3); }
+.aud-fecha { font-family: var(--mono); font-size: 11px; font-weight: 600; flex-shrink: 0; }
+.aud-fecha.urg  { color: var(--rojo); }
+.aud-fecha.prox { color: var(--amar); }
+.aud-fecha.ok   { color: var(--verde); }
+.aud-item.hecho .aud-fecha { color: var(--gris3); text-decoration: line-through; }
 .aud-tipo  { font-size: 11px; color: var(--negro); flex: 1; }
-.aud-item.hecho .aud-tipo { text-decoration: line-through; color: var(--gris3); }
+.aud-item.hecho .aud-tipo { color: var(--gris3); }
+.aud-tipo .aud-res { font-style: italic; }
 .aud-del   { background: none; border: none; color: var(--gris3); cursor: pointer; font-size: 14px; padding: 2px 5px; border-radius: 3px; flex-shrink: 0; }
 .aud-del:hover { background: var(--rojo-l); color: var(--rojo); }
 .aud-nueva { display: grid; grid-template-columns: 140px 1fr auto; gap: 6px; margin-top: 6px; }
@@ -1111,18 +1121,21 @@ async function cargarAudiencias(id) {
 function renderAudiencias() {
   const lista = document.getElementById('aud-list');
   if (!audiencias.length) {
-    lista.innerHTML = '<div style="font-size:11px;color:var(--gris3)">Sin eventos cargados.</div>';
+    lista.innerHTML = '<div style="font-size:11px;color:var(--gris3);padding:8px 10px">Sin eventos cargados.</div>';
     return;
   }
-  const hoy = new Date(); hoy.setHours(0,0,0,0);
-  lista.innerHTML = audiencias.map(a => {
-    const fecha = new Date(a.fecha + 'T00:00:00');
-    const dias  = Math.round((fecha - hoy) / 86400000);
-    const cls   = a.hecho ? '' : dias < 0 ? 'color:var(--rojo)' : dias <= 3 ? 'color:var(--rojo)' : dias <= 10 ? 'color:var(--amar)' : 'color:var(--azul)';
+  const pendientes = audiencias.filter(a => !a.hecho).sort((a, b) => a.fecha.localeCompare(b.fecha));
+  const hechas     = audiencias.filter(a => a.hecho).sort((a, b) => b.fecha.localeCompare(a.fecha));
+  lista.innerHTML = [...pendientes, ...hechas].map(a => {
+    const niv = nivelFecha(a.fecha);
+    const cls = a.hecho ? '' : niv.nivel === 0 ? 'urg' : niv.nivel === 1 ? 'prox' : 'ok';
+    const texto = escH(a.tipo || 'Sin descripción');
+    const contenido = a.hecho && a.notas ? `${texto} — <span class="aud-res">${escH(a.notas)}</span>` : texto;
     return `<div class="aud-item ${a.hecho ? 'hecho' : ''}">
       <input type="checkbox" class="aud-check" ${a.hecho ? 'checked' : ''} onchange="toggleHecho('${a.id}', this.checked)" title="Marcar como hecho">
-      <span class="aud-fecha" style="${cls}">${fmtFecha(a.fecha)}</span>
-      <span class="aud-tipo">${escH(a.tipo || 'Sin descripción')}</span>
+      <span class="aud-dot ${cls}"></span>
+      <span class="aud-fecha ${cls}">${fmtFecha(a.fecha)}</span>
+      <span class="aud-tipo" ${a.hecho ? `onclick="editarResultado('${a.id}')" style="cursor:pointer" title="Click para editar el resultado"` : ''}>${contenido}</span>
       <button class="aud-del" onclick="eliminarAudiencia('${a.id}')" title="Eliminar">✕</button>
     </div>`;
   }).join('');
@@ -1154,12 +1167,30 @@ async function eliminarAudiencia(id) {
 }
 
 async function toggleHecho(id, hecho) {
-  const { error } = await db.from('audiencias').update({ hecho }).eq('id', id);
-  if (error) { toast('Error: ' + error.message, 'err'); return; }
   const a = audiencias.find(x => x.id === id);
-  if (a) a.hecho = hecho;
+  let notas = a ? a.notas : null;
+  if (hecho) {
+    const r = prompt('¿Qué resultó? (opcional, queda anotado en la bitácora)', notas || '');
+    if (r === null) return; // canceló: no marcar como hecho
+    notas = r.trim() || null;
+  }
+  const { error } = await db.from('audiencias').update({ hecho, notas }).eq('id', id);
+  if (error) { toast('Error: ' + error.message, 'err'); return; }
+  if (a) { a.hecho = hecho; a.notas = notas; }
   renderAudiencias();
   actualizarProximoEvento();
+}
+
+async function editarResultado(id) {
+  const a = audiencias.find(x => x.id === id);
+  if (!a) return;
+  const r = prompt('Resultado:', a.notas || '');
+  if (r === null) return;
+  const notas = r.trim() || null;
+  const { error } = await db.from('audiencias').update({ notas }).eq('id', id);
+  if (error) { toast('Error: ' + error.message, 'err'); return; }
+  a.notas = notas;
+  renderAudiencias();
 }
 
 async function actualizarProximoEvento() {
