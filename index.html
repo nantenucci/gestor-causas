@@ -198,6 +198,10 @@ th:nth-child(10),td:nth-child(10){ max-width:140px; } /* TRIBUNAL */
 .aud-tipo .aud-res { font-style: italic; }
 .aud-del   { background: none; border: none; color: var(--gris3); cursor: pointer; font-size: 14px; padding: 2px 5px; border-radius: 3px; flex-shrink: 0; }
 .aud-del:hover { background: var(--rojo-l); color: var(--rojo); }
+.aud-pjn-ico { flex-shrink: 0; width: 15px; text-align: center; font-size: 11px; }
+.aud-item.aud-pjn .aud-tipo { color: var(--azul2); }
+.aud-item.aud-pjn .aud-tipo.link { cursor: pointer; }
+.aud-item.aud-pjn .aud-tipo.link:hover { text-decoration: underline; }
 .aud-nueva { display: grid; grid-template-columns: 140px 1fr auto; gap: 6px; margin-top: 6px; }
 .aud-nueva input { border: 1px solid var(--borde); border-radius: 4px; padding: 6px 8px; font-family: var(--sans); font-size: 11px; background: #fff; outline: none; }
 .aud-nueva input:focus { border-color: var(--azul2); }
@@ -1005,6 +1009,7 @@ async function cargarEventosPjn() {
   if (error) { console.error('Error al cargar eventos PJN:', error.message); return; }
   eventosPjn = data || [];
   actualizarBadgePjn();
+  if (causaId) renderAudiencias();
 }
 
 function actualizarBadgePjn() {
@@ -1108,6 +1113,33 @@ async function importarJSON(event) {
 }
 
 // ── AGENDA (audiencias, vencimientos, gestiones — un solo listado con checkbox) ──
+
+// Empareja expediente PJN (ej. "FRO 8501/2014/TO1/7") con el CUIJ/N° de causa
+// (ej. "FRO FRO 8501/2014"): normaliza fuero+número+año, ignora prefijos
+// duplicados y sufijos de instancia (/TO1/7). Devuelve null si no matchea
+// (ej. causas con CUIJ numérico "21-XXXXXXXX-X", que no tiene equivalente
+// en el listado del PJN).
+function normExpediente(s) {
+  if (!s) return null;
+  let t = String(s).toUpperCase().replace(/CUIJ/g, '').trim();
+  t = t.replace(/\b(\w+)\s+\1\b/g, '$1');
+  const m = t.match(/([A-Z]{2,5})\s*0*(\d+)\/(\d{4})/);
+  return m ? `${m[1]}-${m[2]}-${m[3]}` : null;
+}
+
+function localDateFromTs(ts) {
+  if (!ts) return null;
+  const d = new Date(ts);
+  if (isNaN(d.getTime())) return null;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function eventosPjnDeCausa(causa) {
+  const key = causa && normExpediente(causa.cuij);
+  if (!key) return [];
+  return eventosPjn.filter(ev => normExpediente(ev.expediente) === key);
+}
+
 async function fetchAudiencias(id) {
   const { data } = await db.from('audiencias').select('*').eq('causa_id', id).order('fecha');
   return data || [];
@@ -1120,23 +1152,40 @@ async function cargarAudiencias(id) {
 
 function renderAudiencias() {
   const lista = document.getElementById('aud-list');
-  if (!audiencias.length) {
+  const causa = causas.find(c => c.id === causaId);
+  const pjn = eventosPjnDeCausa(causa)
+    .map(ev => ({
+      id: 'pjn-' + ev.id, pjn: true, hecho: false,
+      fecha: localDateFromTs(ev.fecha_orden),
+      tipo: `${ev.tipo_evento || 'Evento'} (PJN)`,
+      link: ev.link_causa || null,
+    }))
+    .filter(a => a.fecha);
+  const todas = [...audiencias, ...pjn];
+  if (!todas.length) {
     lista.innerHTML = '<div style="font-size:11px;color:var(--gris3);padding:8px 10px">Sin eventos cargados.</div>';
     return;
   }
-  const pendientes = audiencias.filter(a => !a.hecho).sort((a, b) => a.fecha.localeCompare(b.fecha));
-  const hechas     = audiencias.filter(a => a.hecho).sort((a, b) => b.fecha.localeCompare(a.fecha));
+  const pendientes = todas.filter(a => !a.hecho).sort((a, b) => a.fecha.localeCompare(b.fecha));
+  const hechas     = todas.filter(a => a.hecho).sort((a, b) => b.fecha.localeCompare(a.fecha));
   lista.innerHTML = [...pendientes, ...hechas].map(a => {
     const niv = nivelFecha(a.fecha);
     const cls = a.hecho ? '' : niv.nivel === 0 ? 'urg' : niv.nivel === 1 ? 'prox' : 'ok';
     const texto = escH(a.tipo || 'Sin descripción');
     const contenido = a.hecho && a.notas ? `${texto} — <span class="aud-res">${escH(a.notas)}</span>` : texto;
-    return `<div class="aud-item ${a.hecho ? 'hecho' : ''}">
-      <input type="checkbox" class="aud-check" ${a.hecho ? 'checked' : ''} onchange="toggleHecho('${a.id}', this.checked)" title="Marcar como hecho">
+    const marca = a.pjn
+      ? `<span class="aud-pjn-ico" title="Evento automático del sync PJN">🏛️</span>`
+      : `<input type="checkbox" class="aud-check" ${a.hecho ? 'checked' : ''} onchange="toggleHecho('${a.id}', this.checked)" title="Marcar como hecho">`;
+    const tipoAttrs = a.pjn
+      ? (a.link ? `class="aud-tipo link" onclick="window.open('${escH(a.link)}','_blank')" title="Abrir en el Portal PJN"` : `class="aud-tipo"`)
+      : (a.hecho ? `class="aud-tipo" onclick="editarResultado('${a.id}')" style="cursor:pointer" title="Click para editar el resultado"` : `class="aud-tipo"`);
+    const del = a.pjn ? '' : `<button class="aud-del" onclick="eliminarAudiencia('${a.id}')" title="Eliminar">✕</button>`;
+    return `<div class="aud-item ${a.hecho ? 'hecho' : ''} ${a.pjn ? 'aud-pjn' : ''}">
+      ${marca}
       <span class="aud-dot ${cls}"></span>
       <span class="aud-fecha ${cls}">${fmtFecha(a.fecha)}</span>
-      <span class="aud-tipo" ${a.hecho ? `onclick="editarResultado('${a.id}')" style="cursor:pointer" title="Click para editar el resultado"` : ''}>${contenido}</span>
-      <button class="aud-del" onclick="eliminarAudiencia('${a.id}')" title="Eliminar">✕</button>
+      <span ${tipoAttrs}>${contenido}</span>
+      ${del}
     </div>`;
   }).join('');
 }
