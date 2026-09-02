@@ -195,6 +195,8 @@ th:nth-child(10),td:nth-child(10){ max-width:140px; } /* TRIBUNAL */
 .aud-item.hecho .aud-fecha { color: var(--gris3); text-decoration: line-through; }
 .aud-tipo  { font-size: 11px; color: var(--negro); flex: 1; }
 .aud-item.hecho .aud-tipo { color: var(--gris3); }
+.aud-item.pjn-venc .aud-dot   { background: var(--gris3); }
+.aud-item.pjn-venc .aud-fecha { color: var(--gris3); text-decoration: line-through; }
 .aud-tipo .aud-res { font-style: italic; }
 .aud-del   { background: none; border: none; color: var(--gris3); cursor: pointer; font-size: 14px; padding: 2px 5px; border-radius: 3px; flex-shrink: 0; }
 .aud-del:hover { background: var(--rojo-l); color: var(--rojo); }
@@ -1180,7 +1182,8 @@ function renderAudiencias() {
       ? (a.link ? `class="aud-tipo link" onclick="window.open('${escH(a.link)}','_blank')" title="Abrir en el Portal PJN"` : `class="aud-tipo"`)
       : (a.hecho ? `class="aud-tipo" onclick="editarResultado('${a.id}')" style="cursor:pointer" title="Click para editar el resultado"` : `class="aud-tipo"`);
     const del = a.pjn ? '' : `<button class="aud-del" onclick="eliminarAudiencia('${a.id}')" title="Eliminar">✕</button>`;
-    return `<div class="aud-item ${a.hecho ? 'hecho' : ''} ${a.pjn ? 'aud-pjn' : ''}">
+    const pjnVenc = a.pjn && niv.vencida;
+    return `<div class="aud-item ${a.hecho ? 'hecho' : ''} ${a.pjn ? 'aud-pjn' : ''} ${pjnVenc ? 'pjn-venc' : ''}">
       ${marca}
       <span class="aud-dot ${cls}"></span>
       <span class="aud-fecha ${cls}">${fmtFecha(a.fecha)}</span>
