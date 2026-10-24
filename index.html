@@ -198,6 +198,8 @@ th:nth-child(10),td:nth-child(10){ max-width:140px; } /* TRIBUNAL */
 .aud-item.pjn-venc .aud-dot   { background: var(--gris3); }
 .aud-item.pjn-venc .aud-fecha { color: var(--gris3); text-decoration: line-through; }
 .aud-tipo .aud-res { font-style: italic; }
+.aud-link { color: var(--azul2); font-weight: 500; text-decoration: none; white-space: nowrap; }
+.aud-link:hover { text-decoration: underline; }
 .aud-del   { background: none; border: none; color: var(--gris3); cursor: pointer; font-size: 14px; padding: 2px 5px; border-radius: 3px; flex-shrink: 0; }
 .aud-del:hover { background: var(--rojo-l); color: var(--rojo); }
 .aud-pjn-ico { flex-shrink: 0; width: 15px; text-align: center; font-size: 11px; }
@@ -1152,6 +1154,16 @@ async function cargarAudiencias(id) {
   renderAudiencias();
 }
 
+// Convierte URLs dentro de un texto YA escapado (escH) en links clicables que abren en pestaña nueva
+function linkificar(textoEscapado) {
+  return textoEscapado.replace(/https?:\/\/[^\s<]+/g, url => {
+    let host = 'link';
+    try { host = new URL(url.replace(/&amp;/g, '&')).hostname.replace(/^www\./, ''); } catch (e) {}
+    const etiqueta = host === 'mail.google.com' ? 'Gmail' : host;
+    return `<a class="aud-link" href="${url}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" title="${url}">🔗 ${etiqueta}</a>`;
+  });
+}
+
 function renderAudiencias() {
   const lista = document.getElementById('aud-list');
   const causa = causas.find(c => c.id === causaId);
@@ -1173,7 +1185,7 @@ function renderAudiencias() {
   lista.innerHTML = [...pendientes, ...hechas].map(a => {
     const niv = nivelFecha(a.fecha);
     const cls = a.hecho ? '' : niv.nivel === 0 ? 'urg' : niv.nivel === 1 ? 'prox' : 'ok';
-    const texto = escH(a.tipo || 'Sin descripción');
+    const texto = a.pjn ? escH(a.tipo || 'Sin descripción') : linkificar(escH(a.tipo || 'Sin descripción'));
     const contenido = a.hecho && a.notas ? `${texto} — <span class="aud-res">${escH(a.notas)}</span>` : texto;
     const marca = a.pjn
       ? `<span class="aud-pjn-ico" title="Evento automático del sync PJN">🏛️</span>`
