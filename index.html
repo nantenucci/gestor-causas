@@ -274,6 +274,8 @@ tbody tr:hover .nota-btn { opacity: 1; }
       <button class="tb-btn" onclick="exportarJSON()">&#x1F4BE; Backup</button>
       <button class="tb-btn" onclick="document.getElementById('imp-input').click()">&#x1F4C2; Restaurar</button>
       <input type="file" id="imp-input" accept=".json" style="display:none" onchange="importarJSON(event)">
+      <button class="tb-btn" id="btn-desde-doc" onclick="document.getElementById('doc-input').click()" title="Subí el decreto, acta o cédula y se completan los datos solos">&#x1F4C4; Desde documento</button>
+      <input type="file" id="doc-input" accept=".pdf,.docx,.txt" style="display:none" onchange="causaDesdeDocumento(event)">
       <button class="btn-nueva" onclick="nuevaCausa()">+ Nueva causa</button>
       <button class="tb-btn" onclick="cerrarSesion()" title="Cerrar sesión" style="border-color:rgba(255,255,255,.2)">&#x1F513; Salir</button>
     </div>
@@ -523,6 +525,7 @@ tbody tr:hover .nota-btn { opacity: 1; }
     <div class="panel-footer">
       <button class="btn-guardar" id="btn-guardar" onclick="guardarCausa()">Guardar</button>
       <button class="btn-elim btn-pdf" id="btn-pdf" style="display:none" onclick="generarPDF()">&#x1F4C4; PDF</button>
+      <button class="btn-elim btn-pdf" id="btn-caratula" onclick="generarCaratula()" title="Descargar la carátula en Word para imprimir">&#x1F4CB; Carátula</button>
       <button class="btn-elim" id="btn-elim" style="display:none" onclick="eliminarCausa()">Eliminar</button>
     </div>
   </div>
@@ -583,6 +586,9 @@ tbody tr:hover .nota-btn { opacity: 1; }
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script>
 
 // ── AUTOCOMPLETADO DELITOS ──────────────────────────────────────────────────
@@ -670,6 +676,7 @@ let filtroPrivado  = '';
 let sortCol = 'urgNivel';
 let sortAsc = true;
 let causaId = null;         // id de la causa abierta (null = nueva)
+let caratulaDatos = {};     // datos extra de la carátula (víctima, fechas, vinculados...) de la causa abierta
 let notaCausaId = null;     // id de la causa para nota rápida
 
 const CAMPOS_PANEL = [
@@ -869,6 +876,7 @@ function abrirCausa(id) {
   document.getElementById('f-codefensor').value  = c.codefensor || '';
   document.getElementById('f-drive').value       = c.drive || '';
   document.getElementById('f-notas').value       = c.notas || '';
+  caratulaDatos = c.caratula_datos || {};
   document.getElementById('btn-elim').style.display = 'inline-block';
   document.getElementById('btn-pdf').style.display  = 'inline-block';
   document.getElementById('overlay').classList.add('open');
@@ -877,6 +885,7 @@ function abrirCausa(id) {
 
 function nuevaCausa() {
   causaId = null;
+  caratulaDatos = {};
   CAMPOS_PANEL.forEach(id => document.getElementById(id).value = '');
   document.getElementById('ph-cuij').textContent = 'Nueva causa';
   document.getElementById('ph-car').textContent  = '—';
@@ -908,6 +917,7 @@ async function guardarCausa() {
     codefensor:    document.getElementById('f-codefensor').value.trim(),
     drive:         document.getElementById('f-drive').value.trim(),
     notas:         document.getElementById('f-notas').value.trim(),
+    caratula_datos: caratulaDatos,
     updated_at:    new Date().toISOString(),
   };
 
@@ -946,6 +956,147 @@ async function eliminarCausa() {
   document.getElementById('overlay').classList.remove('open');
   renderTabla();
   toast('Causa eliminada.', 'ok');
+}
+
+// ── NUEVA CAUSA DESDE DOCUMENTO ─────────────────────────────────────────
+async function leerTextoDocumento(file) {
+  const nombre = file.name.toLowerCase();
+  if (nombre.endsWith('.txt')) return await file.text();
+  if (nombre.endsWith('.docx')) {
+    const r = await mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() });
+    return r.value;
+  }
+  if (nombre.endsWith('.pdf')) {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
+    const paginas = [];
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const contenido = await (await pdf.getPage(i)).getTextContent();
+      paginas.push(contenido.items.map(it => it.str).join(' '));
+    }
+    return paginas.join('\n\n');
+  }
+  throw new Error('Este tipo de archivo no sirve. Subí un PDF, un Word (.docx) o un .txt.');
+}
+
+function opcionesDe(selectId) {
+  return [...document.getElementById(selectId).options].map(o => o.value || o.text).filter(Boolean);
+}
+
+function elegirOpcion(selectId, valor) {
+  // solo pone el valor si existe esa opción en la lista, para no dejar el select en blanco
+  if (valor && opcionesDe(selectId).includes(valor)) document.getElementById(selectId).value = valor;
+}
+
+async function causaDesdeDocumento(ev) {
+  const file = ev.target.files[0];
+  ev.target.value = '';
+  if (!file) return;
+  loading(true);
+  toast('Leyendo "' + file.name + '"… puede tardar un minuto.');
+  try {
+    const texto = await leerTextoDocumento(file);
+    if (texto.replace(/\s/g, '').length < 100) {
+      throw new Error('El documento no tiene texto (es escaneado). Tiralo primero en la carpeta OCR y subí el .txt que sale.');
+    }
+    const { data, error } = await db.functions.invoke('extraer-causa', {
+      body: { texto, estados: opcionesDe('f-estado'), unidades: opcionesDe('f-unidad') },
+    });
+    if (error) {
+      let msg = error.message;
+      try { msg = (await error.context.json()).error || msg; } catch (_) {}
+      throw new Error(msg);
+    }
+
+    nuevaCausa();
+    elegirOpcion('f-prefijo', data.prefijo);
+    document.getElementById('f-cuij-num').value   = data.numero || '';
+    document.getElementById('f-caratula').value   = data.caratula || '';
+    document.getElementById('f-imputado').value   = data.imputado || '';
+    document.getElementById('f-delito').value     = data.delito || '';
+    document.getElementById('f-tribunal').value   = [data.fiscal, data.juez].filter(Boolean).join(' / ');
+    document.getElementById('f-notas').value      = data.notas || '';
+    elegirOpcion('f-codigo', data.codigo);
+    elegirOpcion('f-estado', data.estado);
+    elegirOpcion('f-privado', data.privado);
+    elegirOpcion('f-unidad', data.unidad);
+    document.getElementById('ph-cuij').textContent = 'Nueva causa — desde ' + file.name;
+    document.getElementById('ph-car').textContent  = data.caratula || '—';
+
+    caratulaDatos = {
+      legajo: data.legajo, delito_detalle: data.delito_detalle, fiscal: data.fiscal, juez: data.juez,
+      alojado: data.alojado, fecha_hecho: data.fecha_hecho, fecha_detencion: data.fecha_detencion,
+      fecha_audiencia: data.fecha_audiencia, victima: data.victima, vinculados: data.vinculados || [],
+      cliente_dni: data.cliente_dni, cliente_domicilio: data.cliente_domicilio, cliente_telefono: data.cliente_telefono,
+    };
+    toast('Datos cargados ✓ Revisalos y tocá Guardar.', 'ok');
+  } catch (err) {
+    toast(err.message, 'err');
+  } finally {
+    loading(false);
+  }
+}
+
+// ── CARÁTULA (Word) ──────────────────────────────────────────────────────
+// orden de las 28 celdas vacías del molde caratula-molde.docx
+const CARATULA_CAMPOS = [
+  'legajo','cuij','fro','fuero_provincial','caratula','delito','fecha_hecho','fecha_detencion','alojado',
+  'fiscal','juez','defensa','victima','fecha_audiencia',
+  'etapa_imputativa','etapa_abreviado','etapa_debate','etapa_apelacion','etapa_casacion','etapa_corte',
+  'vinculado_1','vinculado_2','vinculado_3',
+  'cliente_nombre','cliente_dni','cliente_domicilio','cliente_telefono','cliente_contacto',
+];
+
+function escXml(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+async function generarCaratula() {
+  const v = id => document.getElementById(id).value.trim();
+  const prefijo = v('f-prefijo'), numero = v('f-cuij-num'), estado = v('f-estado');
+  const d = caratulaDatos || {};
+  const vinc = d.vinculados || [];
+  const imputado = v('f-imputado') || v('f-caratula');
+  if (!imputado) { toast('Cargá al menos el imputado o la carátula.', 'err'); return; }
+
+  const datos = {
+    legajo: d.legajo,
+    cuij: prefijo === 'CUIJ' ? numero : '',
+    fro: prefijo !== 'CUIJ' && numero ? prefijo + ' ' + numero : '',
+    fuero_provincial: v('f-codigo') === 'CPPSF' ? 'Sí' : '',
+    caratula: v('f-caratula'),
+    delito: d.delito_detalle || v('f-delito'),
+    fecha_hecho: d.fecha_hecho, fecha_detencion: d.fecha_detencion,
+    alojado: d.alojado || v('f-unidad'),
+    fiscal: d.fiscal || v('f-tribunal'), juez: d.juez,
+    defensa: 'Dr. Néstor Antenucci' + (v('f-codefensor') ? ' / ' + v('f-codefensor') : ''),
+    victima: d.victima, fecha_audiencia: d.fecha_audiencia,
+    etapa_imputativa: /IPP|Preliminar|Formalizaci|Intermedia/.test(estado) ? 'X' : '',
+    etapa_debate: /Juicio Oral/.test(estado) ? 'X' : '',
+    vinculado_1: vinc[0], vinculado_2: vinc[1], vinculado_3: vinc.slice(2).join(' · '),
+    cliente_nombre: v('f-imputado'), cliente_dni: d.cliente_dni,
+    cliente_domicilio: d.cliente_domicilio, cliente_telefono: d.cliente_telefono,
+  };
+
+  try {
+    const zip = await JSZip.loadAsync(await (await fetch('caratula-molde.docx')).arrayBuffer());
+    let xml = await zip.file('word/document.xml').async('string');
+    let i = 0;
+    xml = xml.replace(/<w:t xml:space="preserve"><\/w:t>/g,
+      () => `<w:t xml:space="preserve">${escXml(datos[CARATULA_CAMPOS[i++]])}</w:t>`);
+    xml = xml.replace('[NOMBRE APELLIDO]', escXml(imputado))
+             .replace('[N° CAUSA]', escXml(numero ? (prefijo === 'CUIJ' ? numero : prefijo + ' ' + numero) : d.legajo));
+    zip.file('word/document.xml', xml);
+    const blob = await zip.generateAsync({ type: 'blob' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'Caratula - ' + imputado.replace(/[\\/:*?"<>|]/g, '') + '.docx';
+    a.click();
+    URL.revokeObjectURL(a.href);
+    toast('Carátula descargada ✓', 'ok');
+  } catch (err) {
+    toast('No se pudo armar la carátula: ' + err.message, 'err');
+  }
 }
 
 // ── ALERTAS ──────────────────────────────────────────────────────────────
