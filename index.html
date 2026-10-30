@@ -60,6 +60,21 @@ html, body { height: 100%; overflow: hidden; background: var(--gris); font-famil
 .loading-bar { height: 2px; background: var(--azul2); position: relative; overflow: hidden; display: none; }
 .loading-bar.active { display: block; }
 .loading-bar::after { content:''; position: absolute; left: -40%; width: 40%; height: 100%; background: #7BA7E0; animation: loadSlide 1s infinite; }
+/* aviso grande mientras la IA lee un documento */
+.trabajando { position: fixed; inset: 0; background: rgba(15,30,60,.55); display: none; align-items: center; justify-content: center; z-index: 9999; }
+.trabajando.active { display: flex; }
+.trab-card { background: #fff; border-radius: 10px; padding: 28px 32px; width: min(420px, calc(100vw - 32px)); box-shadow: 0 12px 40px rgba(0,0,0,.3); text-align: center; font-family: var(--sans); }
+.trab-spin { width: 46px; height: 46px; margin: 0 auto 16px; border: 4px solid var(--azul-l); border-top-color: var(--azul2); border-radius: 50%; animation: trabGira .8s linear infinite; }
+@keyframes trabGira { to { transform: rotate(360deg); } }
+.trab-tit { font-size: 16px; font-weight: 600; color: var(--azul); margin-bottom: 4px; }
+.trab-arch { font-size: 12px; color: #666; margin-bottom: 18px; word-break: break-word; }
+.trab-pasos { text-align: left; font-size: 13px; line-height: 2; margin: 0 auto 16px; display: inline-block; }
+.trab-pasos div { color: #aaa; }
+.trab-pasos div.hecho { color: #2E7D32; }
+.trab-pasos div.actual { color: var(--azul); font-weight: 600; }
+.trab-barra { height: 6px; background: var(--azul-l); border-radius: 3px; overflow: hidden; position: relative; }
+.trab-barra::after { content:''; position: absolute; left: -40%; width: 40%; height: 100%; background: var(--azul2); border-radius: 3px; animation: loadSlide 1.2s infinite; }
+.trab-tiempo { font-size: 12px; color: #888; margin-top: 10px; }
 @keyframes loadSlide { to { left: 120%; } }
 
 /* TABLA */
@@ -327,6 +342,20 @@ tbody tr:hover .nota-btn { opacity: 1; }
   <!-- MAIN -->
   <main class="main">
     <div class="loading-bar" id="loading-bar"></div>
+    <div class="trabajando" id="trabajando">
+      <div class="trab-card">
+        <div class="trab-spin"></div>
+        <div class="trab-tit">El Gestor está trabajando…</div>
+        <div class="trab-arch" id="trab-arch"></div>
+        <div class="trab-pasos" id="trab-pasos">
+          <div>1. Leer el documento</div>
+          <div>2. La IA analiza la causa</div>
+          <div>3. Completar la ficha</div>
+        </div>
+        <div class="trab-barra"></div>
+        <div class="trab-tiempo" id="trab-tiempo">0 s</div>
+      </div>
+    </div>
     <div class="main-header">
       <div class="main-title" id="main-title">Todas las causas</div>
     </div>
@@ -988,14 +1017,39 @@ function elegirOpcion(selectId, valor) {
   if (valor && opcionesDe(selectId).includes(valor)) document.getElementById(selectId).value = valor;
 }
 
+let trabReloj = null;
+
+function trabajando(on, archivo) {
+  const el = document.getElementById('trabajando');
+  clearInterval(trabReloj);
+  el.classList.toggle('active', on);
+  if (!on) return;
+  document.getElementById('trab-arch').textContent = archivo;
+  trabPaso(1);
+  const inicio = Date.now();
+  const tiempo = document.getElementById('trab-tiempo');
+  tiempo.textContent = '0 s';
+  trabReloj = setInterval(() => {
+    const s = Math.round((Date.now() - inicio) / 1000);
+    tiempo.textContent = s + ' s' + (s > 20 ? ' — los documentos largos tardan hasta un minuto' : '');
+  }, 1000);
+}
+
+function trabPaso(n) {
+  [...document.getElementById('trab-pasos').children].forEach((d, i) => {
+    d.className = i + 1 < n ? 'hecho' : i + 1 === n ? 'actual' : '';
+    d.textContent = (i + 1 < n ? '✓ ' : '') + d.textContent.replace(/^✓ /, '');
+  });
+}
+
 async function causaDesdeDocumento(ev) {
   const file = ev.target.files[0];
   ev.target.value = '';
   if (!file) return;
-  loading(true);
-  toast('Leyendo "' + file.name + '"… puede tardar un minuto.');
+  trabajando(true, file.name);
   try {
     const texto = await leerTextoDocumento(file);
+    trabPaso(2);
     if (texto.replace(/\s/g, '').length < 100) {
       throw new Error('El documento no tiene texto (es escaneado). Tiralo primero en la carpeta OCR y subí el .txt que sale.');
     }
@@ -1007,6 +1061,7 @@ async function causaDesdeDocumento(ev) {
       try { msg = (await error.context.json()).error || msg; } catch (_) {}
       throw new Error(msg);
     }
+    trabPaso(3);
 
     nuevaCausa();
     document.getElementById('f-prefijo').value = 'CUIJ';
@@ -1034,7 +1089,7 @@ async function causaDesdeDocumento(ev) {
   } catch (err) {
     toast(err.message, 'err');
   } finally {
-    loading(false);
+    trabajando(false);
   }
 }
 
