@@ -1009,6 +1009,7 @@ async function causaDesdeDocumento(ev) {
     }
 
     nuevaCausa();
+    document.getElementById('f-prefijo').value = 'CUIJ';
     elegirOpcion('f-prefijo', data.prefijo);
     document.getElementById('f-cuij-num').value   = data.numero || '';
     document.getElementById('f-caratula').value   = data.caratula || '';
