@@ -60,6 +60,7 @@ html, body { height: 100%; overflow: hidden; background: var(--gris); font-famil
 .loading-bar { height: 2px; background: var(--azul2); position: relative; overflow: hidden; display: none; }
 .loading-bar.active { display: block; }
 .loading-bar::after { content:''; position: absolute; left: -40%; width: 40%; height: 100%; background: #7BA7E0; animation: loadSlide 1s infinite; }
+.aloj-sub { font-size: 10px; color: var(--gris3); margin-top: 2px; white-space: nowrap; }
 /* aviso grande mientras la IA lee un documento */
 .trabajando { position: fixed; inset: 0; background: rgba(15,30,60,.55); display: none; align-items: center; justify-content: center; z-index: 9999; }
 .trabajando.active { display: flex; }
@@ -459,7 +460,7 @@ tbody tr:hover .nota-btn { opacity: 1; }
             </select>
           </div>
           <div class="pf"><label>Privado de libertad</label>
-            <select id="f-privado"><option value="">—</option><option>SÍ</option><option>NO</option><option>Domiciliario</option></select>
+            <select id="f-privado" onchange="mostrarAlojamiento()"><option value="">—</option><option>SÍ</option><option>NO</option><option>Domiciliario</option></select>
           </div>
           <div class="pf full"><label>Unidad penitenciaria</label>
             <select id="f-unidad">
@@ -518,6 +519,8 @@ tbody tr:hover .nota-btn { opacity: 1; }
               </optgroup>
             </select>
           </div>
+          <div class="pf aloj-extra"><label>Módulo</label><input id="f-modulo" placeholder="Ej: Módulo 2"></div>
+          <div class="pf aloj-extra"><label>Pabellón</label><input id="f-pabellon" placeholder="Ej: Pabellón 4"></div>
           <div class="pf full"><label>Codefensor/a</label><input id="f-codefensor" placeholder="Ej: Dra. Natalia Rubio Molina"></div>
         </div>
       </div>
@@ -711,7 +714,27 @@ let notaCausaId = null;     // id de la causa para nota rápida
 const CAMPOS_PANEL = [
   'f-cuij-num','f-caratula','f-imputado','f-delito','f-tribunal','f-codefensor',
   'f-drive','f-notas','f-prefijo','f-codigo','f-estado','f-privado','f-unidad',
+  'f-modulo','f-pabellon',
 ];
+
+// módulo y pabellón solo tienen sentido si está detenido
+function mostrarAlojamiento() {
+  const det = document.getElementById('f-privado').value === 'SÍ';
+  document.querySelectorAll('.aloj-extra').forEach(el => el.style.display = det ? '' : 'none');
+}
+
+// "UP N°11 — Complejo Penitenciario Piñero" → "U11"; "CPF I — Ezeiza" → "CPF I"
+function alojamientoCorto(c) {
+  const u = (c.unidad || '').split(' — ')[0].replace(/^UP N°\s*/, 'U');
+  return [u, c.modulo && 'Mód. ' + c.modulo.replace(/^m[oó]dulo\s*/i, ''),
+          c.pabellon && 'Pab. ' + c.pabellon.replace(/^pabell[oó]n\s*/i, '')].filter(Boolean).join(' · ');
+}
+
+function alojamientoLargo(unidad, modulo, pabellon) {
+  return [unidad,
+          modulo && (/^m[oó]dulo/i.test(modulo) ? modulo : 'Módulo ' + modulo),
+          pabellon && (/^pabell[oó]n/i.test(pabellon) ? pabellon : 'Pabellón ' + pabellon)].filter(Boolean).join(' · ');
+}
 
 // ── HELPERS ──────────────────────────────────────────────────────────────
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
@@ -835,7 +858,8 @@ function renderTabla() {
     const urgB = c._urg.cls ? `<span class="badge ${c._urg.cls}">${c._urg.label}</span>` : '<span style="color:var(--gris3)">—</span>';
     const dias = c._urg.dias !== undefined ? `${c._urg.dias}d` : '—';
     const estCls = c.estado?.includes('Juicio Oral') ? 'juicio' : c.estado?.includes('Ejecución Penal') ? 'ejecucion' : '';
-    const privBadge = c.privado === 'SÍ'          ? `<span class="priv-badge detenido">&#x1F512; Det.</span>`
+    const aloj = c.privado === 'SÍ' ? alojamientoCorto(c) : '';
+    const privBadge = c.privado === 'SÍ'          ? `<span class="priv-badge detenido">&#x1F512; Det.</span>${aloj ? `<div class="aloj-sub" title="${escH(alojamientoLargo(c.unidad, c.modulo, c.pabellon))}">${escH(aloj)}</div>` : ''}`
                     : c.privado === 'Domiciliario' ? `<span class="priv-badge domicilio">&#x1F3E0; Dom.</span>`
                     : c.privado === 'NO'           ? `<span class="priv-badge libre">&#x2713; Libre</span>`
                     : `<span style="color:var(--gris3)">—</span>`;
@@ -902,10 +926,13 @@ function abrirCausa(id) {
   document.getElementById('f-estado').value      = c.estado || '';
   document.getElementById('f-privado').value     = c.privado || '';
   document.getElementById('f-unidad').value      = c.unidad || '';
+  document.getElementById('f-modulo').value      = c.modulo || '';
+  document.getElementById('f-pabellon').value    = c.pabellon || '';
   document.getElementById('f-codefensor').value  = c.codefensor || '';
   document.getElementById('f-drive').value       = c.drive || '';
   document.getElementById('f-notas').value       = c.notas || '';
   caratulaDatos = c.caratula_datos || {};
+  mostrarAlojamiento();
   document.getElementById('btn-elim').style.display = 'inline-block';
   document.getElementById('btn-pdf').style.display  = 'inline-block';
   document.getElementById('overlay').classList.add('open');
@@ -923,6 +950,7 @@ function nuevaCausa() {
   document.getElementById('overlay').classList.add('open');
   audiencias = [];
   renderAudiencias();
+  mostrarAlojamiento();
 }
 
 function cerrarPanel(e) { cerrarModal('overlay', e); }
@@ -943,6 +971,8 @@ async function guardarCausa() {
     estado:        document.getElementById('f-estado').value,
     privado:       document.getElementById('f-privado').value,
     unidad:        document.getElementById('f-unidad').value,
+    modulo:        document.getElementById('f-modulo').value.trim(),
+    pabellon:      document.getElementById('f-pabellon').value.trim(),
     codefensor:    document.getElementById('f-codefensor').value.trim(),
     drive:         document.getElementById('f-drive').value.trim(),
     notas:         document.getElementById('f-notas').value.trim(),
@@ -1076,6 +1106,9 @@ async function causaDesdeDocumento(ev) {
     elegirOpcion('f-estado', data.estado);
     elegirOpcion('f-privado', data.privado);
     elegirOpcion('f-unidad', data.unidad);
+    document.getElementById('f-modulo').value   = data.modulo || '';
+    document.getElementById('f-pabellon').value = data.pabellon || '';
+    mostrarAlojamiento();
     document.getElementById('ph-cuij').textContent = 'Nueva causa — desde ' + file.name;
     document.getElementById('ph-car').textContent  = data.caratula || '—';
 
@@ -1123,7 +1156,7 @@ async function generarCaratula() {
     caratula: v('f-caratula'),
     delito: d.delito_detalle || v('f-delito'),
     fecha_hecho: d.fecha_hecho, fecha_detencion: d.fecha_detencion,
-    alojado: d.alojado || v('f-unidad'),
+    alojado: alojamientoLargo(v('f-unidad'), v('f-modulo'), v('f-pabellon')) || d.alojado,
     fiscal: d.fiscal || v('f-tribunal'), juez: d.juez,
     defensa: 'Dr. Néstor Antenucci' + (v('f-codefensor') ? ' / ' + v('f-codefensor') : ''),
     victima: d.victima, fecha_audiencia: d.fecha_audiencia,
