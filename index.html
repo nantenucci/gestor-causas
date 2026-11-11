@@ -61,6 +61,10 @@ html, body { height: 100%; overflow: hidden; background: var(--gris); font-famil
 .loading-bar.active { display: block; }
 .loading-bar::after { content:''; position: absolute; left: -40%; width: 40%; height: 100%; background: #7BA7E0; animation: loadSlide 1s infinite; }
 .aloj-sub { font-size: 10px; color: var(--gris3); margin-top: 2px; white-space: nowrap; }
+.rol-badge { font-size: 9px; font-weight: 600; letter-spacing: .03em; text-transform: uppercase; background: #EEEDFE; color: #3C3489; border-radius: 3px; padding: 1px 5px; vertical-align: 1px; }
+.rol-toggle { display: flex; gap: 8px; }
+.rol-toggle button { flex: 1; padding: 8px; border: 1px solid var(--borde, #ccc); background: #fff; border-radius: 4px; font-family: var(--sans); font-size: 13px; cursor: pointer; color: #555; }
+.rol-toggle button.active { border: 2px solid var(--azul2); color: var(--azul); font-weight: 600; background: var(--azul-l); }
 /* aviso grande mientras la IA lee un documento */
 .trabajando { position: fixed; inset: 0; background: rgba(15,30,60,.55); display: none; align-items: center; justify-content: center; z-index: 9999; }
 .trabajando.active { display: flex; }
@@ -322,6 +326,14 @@ tbody tr:hover .nota-btn { opacity: 1; }
       </div>
     </div>
     <div class="sb-section">
+      <div class="sb-label">Representamos a</div>
+      <div class="filter-group">
+        <button class="filter-btn active" data-rol="" onclick="setRol(this)">Todas</button>
+        <button class="filter-btn" data-rol="Defensa" onclick="setRol(this)">&#x1F6E1;&#xFE0F; Defensa</button>
+        <button class="filter-btn" data-rol="Querella" onclick="setRol(this)">&#x2696;&#xFE0F; Querella</button>
+      </div>
+    </div>
+    <div class="sb-section">
       <div class="sb-label">Estado procesal</div>
       <div class="filter-group">
         <button class="filter-btn active" data-estado="" onclick="setEstado(this)">Todos</button>
@@ -367,7 +379,7 @@ tbody tr:hover .nota-btn { opacity: 1; }
             <th onclick="sortBy('urgNivel')"  data-col="urgNivel">URGENCIA <span class="sort-arrow">↕</span></th>
             <th onclick="sortBy('cuij')"      data-col="cuij">N° CAUSA <span class="sort-arrow">↕</span></th>
             <th onclick="sortBy('caratula')"  data-col="caratula">CARÁTULA <span class="sort-arrow">↕</span></th>
-            <th onclick="sortBy('imputado')"  data-col="imputado">IMPUTADO/S <span class="sort-arrow">↕</span></th>
+            <th onclick="sortBy('clienteVis')"  data-col="clienteVis">CLIENTE <span class="sort-arrow">↕</span></th>
             <th onclick="sortBy('delito')"    data-col="delito">DELITO <span class="sort-arrow">↕</span></th>
             <th onclick="sortBy('estado')"    data-col="estado">ESTADO <span class="sort-arrow">↕</span></th>
             <th onclick="sortBy('privado')"   data-col="privado">PRIVADO <span class="sort-arrow">↕</span></th>
@@ -395,6 +407,15 @@ tbody tr:hover .nota-btn { opacity: 1; }
         <div class="ps-title">Identificación</div>
         <div class="pgrid">
           <div class="pf full">
+            <label>Representamos a</label>
+            <input type="hidden" id="f-rol">
+            <div class="rol-toggle">
+              <button type="button" data-rolficha="Defensa" onclick="setRolFicha('Defensa')">&#x1F6E1;&#xFE0F; Defensa (imputado)</button>
+              <button type="button" data-rolficha="Querella" onclick="setRolFicha('Querella')">&#x2696;&#xFE0F; Querella (víctima)</button>
+            </div>
+          </div>
+          <div class="pf full solo-querella"><label>Cliente querellante</label><input id="f-cliente" placeholder="Apellido, Nombre de la víctima"></div>
+          <div class="pf full">
             <label>N° de Causa</label>
             <div class="row-flex">
               <select id="f-prefijo" class="w-90">
@@ -409,7 +430,7 @@ tbody tr:hover .nota-btn { opacity: 1; }
             </div>
           </div>
           <div class="pf full"><label>Carátula</label><input id="f-caratula" placeholder="Ej: Riquelme y otros s/ Homicidio"></div>
-          <div class="pf full"><label>Imputado/s</label><input id="f-imputado" placeholder="Apellido, Nombre"></div>
+          <div class="pf full"><label id="lbl-imputado">Imputado/s</label><input id="f-imputado" placeholder="Apellido, Nombre"></div>
           <div class="pf">
             <label>Delito</label>
             <div class="delito-wrap">
@@ -705,6 +726,7 @@ let audiencias = [];        // audiencias de la causa abierta
 let filtroUrgencia = 'todos';
 let filtroEstado   = '';
 let filtroPrivado  = '';
+let filtroRol      = '';     // '' | 'Defensa' | 'Querella'
 let sortCol = 'urgNivel';
 let sortAsc = true;
 let causaId = null;         // id de la causa abierta (null = nueva)
@@ -714,8 +736,22 @@ let notaCausaId = null;     // id de la causa para nota rápida
 const CAMPOS_PANEL = [
   'f-cuij-num','f-caratula','f-imputado','f-delito','f-tribunal','f-codefensor',
   'f-drive','f-notas','f-prefijo','f-codigo','f-estado','f-privado','f-unidad',
-  'f-modulo','f-pabellon',
+  'f-modulo','f-pabellon','f-rol','f-cliente',
 ];
+
+// en defensa el cliente es el imputado; en querella, la víctima que patrocinamos
+function clienteDe(c) {
+  return c.rol === 'Querella' ? (c.cliente || '') : (c.imputado || '');
+}
+
+function setRolFicha(rol) {
+  rol = rol || 'Defensa';
+  document.getElementById('f-rol').value = rol;
+  document.querySelectorAll('[data-rolficha]').forEach(b => b.classList.toggle('active', b.dataset.rolficha === rol));
+  const q = rol === 'Querella';
+  document.querySelectorAll('.solo-querella').forEach(el => el.style.display = q ? '' : 'none');
+  document.getElementById('lbl-imputado').textContent = q ? 'Imputado/s (contraparte)' : 'Imputado/s';
+}
 
 // módulo y pabellón solo tienen sentido si está detenido
 function mostrarAlojamiento() {
@@ -809,6 +845,7 @@ function actualizarTitulo() {
   if (filtroUrgencia !== 'todos') partes.push({ urgente:'Urgentes', proximo:'Próximas', ok:'Sin urgencia' }[filtroUrgencia]);
   if (filtroEstado) partes.push(filtroEstado);
   if (filtroPrivado) partes.push(filtroPrivado === 'SÍ' ? 'Detenidos' : filtroPrivado === 'Domiciliario' ? 'Domiciliario' : 'En libertad');
+  if (filtroRol) partes.push(filtroRol === 'Querella' ? 'Querellas' : 'Defensas');
   document.getElementById('main-title').textContent = partes.length ? partes.join(' · ') : 'Todas las causas';
 }
 
@@ -817,7 +854,7 @@ function renderTabla() {
 
   let vis = causas.map(c => {
     const u = calcUrg(c);
-    return { ...c, urgNivel: u.nivel, dias: u.dias, _urg: u };
+    return { ...c, urgNivel: u.nivel, dias: u.dias, _urg: u, clienteVis: clienteDe(c) };
   });
 
   if (filtroUrgencia !== 'todos') vis = vis.filter(c =>
@@ -827,8 +864,9 @@ function renderTabla() {
   );
   if (filtroEstado)  vis = vis.filter(c => c.estado === filtroEstado);
   if (filtroPrivado) vis = vis.filter(c => c.privado === filtroPrivado);
+  if (filtroRol)     vis = vis.filter(c => (c.rol || 'Defensa') === filtroRol);
   if (busq) vis = vis.filter(c =>
-    [c.cuij,c.caratula,c.imputado,c.delito,c.tribunal,c.notas].map(x => String(x || '')).join(' ').toLowerCase().includes(busq)
+    [c.cuij,c.caratula,c.cliente,c.imputado,c.delito,c.tribunal,c.notas].map(x => String(x || '')).join(' ').toLowerCase().includes(busq)
   );
 
   vis.sort((a, b) => {
@@ -867,7 +905,9 @@ function renderTabla() {
       <td>${urgB}</td>
       <td class="cuij-mono">${escH(c.cuij) || '—'}</td>
       <td title="${escH(c.caratula)}">${escH(c.caratula) || '—'}</td>
-      <td title="${escH(c.imputado)}">${escH(c.imputado) || '—'}</td>
+      <td title="${escH(c.clienteVis)}">${c.rol === 'Querella'
+        ? `${escH(c.clienteVis) || '—'} <span class="rol-badge">Querella</span><div class="aloj-sub">c/ ${escH(c.imputado) || '—'}</div>`
+        : escH(c.clienteVis) || '—'}</td>
       <td title="${escH(c.delito)}">${escH(c.delito) || '—'}</td>
       <td><span class="estado-badge ${estCls}">${escH(c.estado) || '—'}</span></td>
       <td>${privBadge}</td>
@@ -905,6 +945,12 @@ function setPrivado(btn) {
   btn.classList.add('active');
   renderTabla();
 }
+function setRol(btn) {
+  filtroRol = btn.dataset.rol;
+  document.querySelectorAll('[data-rol]').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderTabla();
+}
 
 // ── PANEL DETALLE ────────────────────────────────────────────────────────
 function abrirCausa(id) {
@@ -932,6 +978,8 @@ function abrirCausa(id) {
   document.getElementById('f-drive').value       = c.drive || '';
   document.getElementById('f-notas').value       = c.notas || '';
   caratulaDatos = c.caratula_datos || {};
+  document.getElementById('f-cliente').value = c.cliente || '';
+  setRolFicha(c.rol);
   mostrarAlojamiento();
   document.getElementById('btn-elim').style.display = 'inline-block';
   document.getElementById('btn-pdf').style.display  = 'inline-block';
@@ -950,6 +998,7 @@ function nuevaCausa() {
   document.getElementById('overlay').classList.add('open');
   audiencias = [];
   renderAudiencias();
+  setRolFicha('Defensa');
   mostrarAlojamiento();
 }
 
@@ -973,6 +1022,8 @@ async function guardarCausa() {
     unidad:        document.getElementById('f-unidad').value,
     modulo:        document.getElementById('f-modulo').value.trim(),
     pabellon:      document.getElementById('f-pabellon').value.trim(),
+    rol:           document.getElementById('f-rol').value || 'Defensa',
+    cliente:       document.getElementById('f-cliente').value.trim(),
     codefensor:    document.getElementById('f-codefensor').value.trim(),
     drive:         document.getElementById('f-drive').value.trim(),
     notas:         document.getElementById('f-notas').value.trim(),
@@ -1106,6 +1157,8 @@ async function causaDesdeDocumento(ev) {
     elegirOpcion('f-estado', data.estado);
     elegirOpcion('f-privado', data.privado);
     elegirOpcion('f-unidad', data.unidad);
+    setRolFicha(data.rol);
+    document.getElementById('f-cliente').value  = data.rol === 'Querella' ? (data.cliente_querellante || '') : '';
     document.getElementById('f-modulo').value   = data.modulo || '';
     document.getElementById('f-pabellon').value = data.pabellon || '';
     mostrarAlojamiento();
@@ -1144,9 +1197,12 @@ async function generarCaratula() {
   const v = id => document.getElementById(id).value.trim();
   const prefijo = v('f-prefijo'), numero = v('f-cuij-num'), estado = v('f-estado');
   const d = caratulaDatos || {};
-  const vinc = d.vinculados || [];
-  const imputado = v('f-imputado') || v('f-caratula');
-  if (!imputado) { toast('Cargá al menos el imputado o la carátula.', 'err'); return; }
+  const vinc = [...(d.vinculados || [])];
+  const querella = v('f-rol') === 'Querella';
+  const cliente = (querella ? v('f-cliente') : v('f-imputado')) || v('f-caratula');
+  if (!cliente) { toast(querella ? 'Cargá el cliente querellante o la carátula.' : 'Cargá al menos el imputado o la carátula.', 'err'); return; }
+  // en querella el imputado pasa a "Vinculados" como contraparte
+  if (querella && v('f-imputado')) vinc.unshift(v('f-imputado') + ' (imputado)');
 
   const datos = {
     legajo: d.legajo,
@@ -1158,12 +1214,12 @@ async function generarCaratula() {
     fecha_hecho: d.fecha_hecho, fecha_detencion: d.fecha_detencion,
     alojado: alojamientoLargo(v('f-unidad'), v('f-modulo'), v('f-pabellon')) || d.alojado,
     fiscal: d.fiscal || v('f-tribunal'), juez: d.juez,
-    defensa: 'Dr. Néstor Antenucci' + (v('f-codefensor') ? ' / ' + v('f-codefensor') : ''),
-    victima: d.victima, fecha_audiencia: d.fecha_audiencia,
+    defensa: (querella ? 'Querella: ' : '') + 'Dr. Néstor Antenucci' + (v('f-codefensor') ? ' / ' + v('f-codefensor') : ''),
+    victima: querella ? (d.victima || v('f-cliente')) : d.victima, fecha_audiencia: d.fecha_audiencia,
     etapa_imputativa: /IPP|Preliminar|Formalizaci|Intermedia/.test(estado) ? 'X' : '',
     etapa_debate: /Juicio Oral/.test(estado) ? 'X' : '',
     vinculado_1: vinc[0], vinculado_2: vinc[1], vinculado_3: vinc.slice(2).join(' · '),
-    cliente_nombre: v('f-imputado'), cliente_dni: d.cliente_dni,
+    cliente_nombre: querella ? v('f-cliente') : v('f-imputado'), cliente_dni: d.cliente_dni,
     cliente_domicilio: d.cliente_domicilio, cliente_telefono: d.cliente_telefono,
   };
 
@@ -1173,13 +1229,14 @@ async function generarCaratula() {
     let i = 0;
     xml = xml.replace(/<w:t xml:space="preserve"><\/w:t>/g,
       () => `<w:t xml:space="preserve">${escXml(datos[CARATULA_CAMPOS[i++]])}</w:t>`);
-    xml = xml.replace('[NOMBRE APELLIDO]', escXml(imputado))
+    if (querella) xml = xml.replace('>Imputado / Nombre<', '>Querellante (cliente)<').replace('>PROCESO PENAL<', '>PROCESO PENAL — QUERELLA<');
+    xml = xml.replace('[NOMBRE APELLIDO]', escXml(cliente))
              .replace('[N° CAUSA]', escXml(numero ? (prefijo === 'CUIJ' ? numero : prefijo + ' ' + numero) : d.legajo));
     zip.file('word/document.xml', xml);
     const blob = await zip.generateAsync({ type: 'blob' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = 'Caratula - ' + imputado.replace(/[\\/:*?"<>|]/g, '') + '.docx';
+    a.download = 'Caratula - ' + cliente.replace(/[\\/:*?"<>|]/g, '') + '.docx';
     a.click();
     URL.revokeObjectURL(a.href);
     toast('Carátula descargada ✓', 'ok');
@@ -1592,7 +1649,8 @@ async function generarPDF() {
 
       <div class="seccion">
         <div class="sec-title">Identificación</div>
-        ${campo('Imputado/s', c.imputado)}
+        ${c.rol === 'Querella' ? campo('Cliente querellante', c.cliente) : ''}
+        ${campo(c.rol === 'Querella' ? 'Imputado/s (contraparte)' : 'Imputado/s', c.imputado)}
         ${campo('Delito', c.delito)}
         ${campo('Código procesal', c.codigo)}
       </div>
