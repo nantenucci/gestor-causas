@@ -174,6 +174,22 @@ th:nth-child(10),td:nth-child(10){ max-width:140px; } /* TRIBUNAL */
 .al-dias { font-family: var(--mono); font-size: 12px; font-weight: 700; flex-shrink: 0; padding: 4px 8px; border-radius: 4px; white-space: nowrap; }
 .al-dias.urg { background: var(--rojo-l); color: var(--rojo); } .al-dias.prox { background: var(--amar-l); color: var(--amar); }
 .al-dias.venc-urg { background: #FDE8FF; color: #86198F; } .al-dias.venc { background: var(--viol-l); color: var(--viol); }
+.ag-modal { width: 760px; }
+.ag-ctrl { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding: 10px 22px; border-bottom: 1px solid var(--borde); background: #fff; }
+.ag-ctrl button, .ag-ctrl select { font-family: var(--sans); font-size: 12px; border: 1px solid var(--borde); background: #fff; border-radius: 4px; padding: 5px 10px; cursor: pointer; }
+.ag-ctrl button.on { background: var(--azul); color: #fff; border-color: var(--azul); }
+.ag-rango { font-size: 12px; font-weight: 600; margin: 0 6px; }
+.ag-dia { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--gris3); margin: 14px 0 4px; padding-bottom: 4px; border-bottom: 1px solid var(--borde); }
+.ag-dia.hoy { color: var(--azul); }
+.ag-dia.atr { color: var(--rojo); }
+.ag-row { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 5px; }
+.ag-row:hover { background: var(--gris); }
+.ag-row .ag-f { font-family: var(--mono); font-size: 11px; min-width: 42px; }
+.ag-row .ag-t { flex: 1; min-width: 0; font-size: 12px; }
+.ag-row .ag-c { font-size: 11px; font-weight: 600; color: var(--azul2); cursor: pointer; white-space: nowrap; max-width: 170px; overflow: hidden; text-overflow: ellipsis; }
+.ag-row .ag-c:hover { text-decoration: underline; }
+.ag-row.hecho .ag-t { text-decoration: line-through; color: var(--gris3); }
+.ag-vacio { text-align: center; padding: 40px 20px; color: var(--gris3); font-size: 13px; }
 .al-footer { padding: 12px 22px; border-top: 1px solid var(--borde); display: flex; justify-content: space-between; align-items: center; position: sticky; bottom: 0; background: #fff; }
 .al-footer small { font-size: 11px; color: var(--gris3); }
 .btn-ok { background: var(--azul); color: #fff; border: none; border-radius: 4px; padding: 8px 20px; font-family: var(--sans); font-size: 12px; font-weight: 500; cursor: pointer; }
@@ -314,6 +330,7 @@ tbody tr:hover .nota-btn { opacity: 1; }
       <div class="topbar-stat">Activas: <b id="stat-total">—</b></div>
       <div class="topbar-stat">Urgentes: <b id="stat-urg">—</b></div>
       <button class="tb-btn" onclick="abrirAlertas()">&#x1F514; Alertas</button>
+      <button class="tb-btn" onclick="abrirAgendaGral()" title="Todo lo agendado en todas las causas">&#x1F4C5; Agenda</button>
       <button class="tb-btn" id="btn-pjn" onclick="abrirPjn()">&#x1F3DB;&#xFE0F; PJN</button>
       <button class="tb-btn" onclick="exportarJSON()">&#x1F4BE; Backup</button>
       <button class="tb-btn" onclick="document.getElementById('imp-input').click()">&#x1F4C2; Restaurar</button>
@@ -642,6 +659,36 @@ tbody tr:hover .nota-btn { opacity: 1; }
         <button class="btn-ok" style="background:var(--verde);border:none" onclick="imprimirAlertas()">&#x1F5A8; Imprimir</button>
         <button class="btn-ok" onclick="cerrarAlertas()">Entendido</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- PANEL AGENDA GENERAL -->
+<div class="al-overlay" id="ag-overlay" onclick="cerrarAgendaGral(event)">
+  <div class="al-modal ag-modal" onclick="event.stopPropagation()">
+    <div class="al-header">
+      <div><h2>&#x1F4C5; Agenda del estudio</h2><p id="ag-subtitulo">Todas las causas</p></div>
+      <button class="btn-x" onclick="cerrarAgendaGral()" style="color:var(--negro)">×</button>
+    </div>
+    <div class="ag-ctrl">
+      <button id="ag-v-semana" class="on" onclick="agVista('semana')">Semana</button>
+      <button id="ag-v-mes" onclick="agVista('mes')">Mes</button>
+      <button onclick="agMover(-1)" title="Anterior">&#x2039;</button>
+      <span class="ag-rango" id="ag-rango"></span>
+      <button onclick="agMover(1)" title="Siguiente">&#x203A;</button>
+      <button onclick="agHoy()">Hoy</button>
+      <span style="flex:1"></span>
+      <select id="ag-filtro" onchange="renderAgendaGral()">
+        <option value="todo">Todo</option>
+        <option value="vence">Solo vencimientos</option>
+        <option value="otros">Audiencias y demás</option>
+      </select>
+      <label style="font-size:11px;display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" id="ag-hechos" onchange="renderAgendaGral()"> Ver tildados</label>
+    </div>
+    <div class="al-body" id="ag-body"></div>
+    <div class="al-footer">
+      <small>Clic en el nombre para abrir la causa. Tildar acá es lo mismo que tildar en la causa.</small>
+      <button class="btn-ok" onclick="cerrarAgendaGral()">Cerrar</button>
     </div>
   </div>
 </div>
@@ -1349,6 +1396,132 @@ function abrirAlertas() {
 }
 
 function cerrarAlertas(e) { cerrarModal('al-overlay', e); }
+
+// ── AGENDA GENERAL DEL ESTUDIO ───────────────────────────────────────────
+let agFilas = [], agAtrasados = [], agVistaAct = 'semana', agBase = null;
+const AG_DIAS = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+const AG_MESES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+
+function agISO(d) { return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+function agHoyISO() { return agISO(new Date()); }
+function agRango() {
+  const b = new Date(agBase);
+  if (agVistaAct === 'mes') {
+    const ini = new Date(b.getFullYear(), b.getMonth(), 1), fin = new Date(b.getFullYear(), b.getMonth() + 1, 0);
+    return { ini, fin, txt: `${AG_MESES[ini.getMonth()]} ${ini.getFullYear()}` };
+  }
+  const ini = new Date(b); ini.setDate(b.getDate() - ((b.getDay() + 6) % 7));
+  const fin = new Date(ini); fin.setDate(ini.getDate() + 6);
+  const mismoMes = ini.getMonth() === fin.getMonth();
+  return { ini, fin, txt: `${ini.getDate()}${mismoMes ? '' : ' de ' + AG_MESES[ini.getMonth()]} al ${fin.getDate()} de ${AG_MESES[fin.getMonth()]}` };
+}
+
+function abrirAgendaGral() {
+  agBase = new Date(); agBase.setHours(12, 0, 0, 0);
+  document.getElementById('ag-overlay').classList.add('open');
+  cargarAgendaGral();
+}
+function cerrarAgendaGral(e) { cerrarModal('ag-overlay', e); }
+function agVista(v) {
+  agVistaAct = v;
+  document.getElementById('ag-v-semana').classList.toggle('on', v === 'semana');
+  document.getElementById('ag-v-mes').classList.toggle('on', v === 'mes');
+  cargarAgendaGral();
+}
+function agMover(n) {
+  if (agVistaAct === 'mes') agBase = new Date(agBase.getFullYear(), agBase.getMonth() + n, 1, 12);
+  else agBase.setDate(agBase.getDate() + 7 * n);
+  cargarAgendaGral();
+}
+function agHoy() { agBase = new Date(); agBase.setHours(12, 0, 0, 0); cargarAgendaGral(); }
+
+async function cargarAgendaGral() {
+  const r = agRango();
+  document.getElementById('ag-rango').textContent = r.txt;
+  document.getElementById('ag-body').innerHTML = '<div class="ag-vacio">Cargando…</div>';
+  const hoy = agHoyISO();
+  const hace30 = new Date(); hace30.setDate(hace30.getDate() - 30);
+  const [enRango, atr] = await Promise.all([
+    db.from('audiencias').select('id,causa_id,fecha,tipo,hecho,notas').gte('fecha', agISO(r.ini)).lte('fecha', agISO(r.fin)).order('fecha'),
+    db.from('audiencias').select('id,causa_id,fecha,tipo,hecho,notas').eq('hecho', false).gte('fecha', agISO(hace30)).lt('fecha', hoy).order('fecha'),
+  ]);
+  if (enRango.error || atr.error) {
+    document.getElementById('ag-body').innerHTML = `<div class="ag-vacio">No se pudo cargar la agenda: ${escH((enRango.error || atr.error).message)}</div>`;
+    return;
+  }
+  agFilas = enRango.data || [];
+  agAtrasados = atr.data || [];
+  renderAgendaGral();
+}
+
+function agEsVence(a) { return /^VENCE:\s*/.test(a.tipo || ''); }
+
+function agFilaHTML(a, conFecha) {
+  const c = causas.find(x => x.id === a.causa_id);
+  const nombre = c ? (c.imputado || c.caratula || c.cuij || 'Causa') : 'Causa borrada';
+  const niv = nivelFecha(a.fecha);
+  const cls = a.hecho ? '' : niv.nivel === 0 ? 'urg' : niv.nivel === 1 ? 'prox' : 'ok';
+  const vence = agEsVence(a);
+  const txt = vence ? a.tipo.replace(/^VENCE:\s*/, '') : (a.tipo || 'Sin descripción');
+  const res = a.hecho && a.notas ? ` — <span class="aud-res">${escH(a.notas)}</span>` : '';
+  return `<div class="ag-row ${a.hecho ? 'hecho' : ''}">
+    <input type="checkbox" class="aud-check" ${a.hecho ? 'checked' : ''} onchange="agToggle('${a.id}', this.checked, this)" title="Marcar como hecho">
+    <span class="aud-dot ${cls}"></span>
+    ${conFecha ? `<span class="ag-f aud-fecha ${cls}">${fmtFecha(a.fecha).slice(0, 5)}</span>` : ''}
+    <span class="ag-t">${vence ? '<span class="aud-vence">VENCE</span>' : ''}${linkificar(escH(txt))}${res}</span>
+    ${c ? `<span class="ag-c" onclick="cerrarAgendaGral();abrirCausa('${c.id}')" title="${escH(c.caratula || '')}">${escH(nombre)}</span>` : `<span class="ag-c" style="color:var(--gris3);cursor:default">${escH(nombre)}</span>`}
+  </div>`;
+}
+
+function renderAgendaGral() {
+  const filtro = document.getElementById('ag-filtro').value;
+  const verHechos = document.getElementById('ag-hechos').checked;
+  const pasa = a => (filtro === 'todo' || (filtro === 'vence') === agEsVence(a));
+  const hoy = agHoyISO();
+  const filas = agFilas.filter(a => pasa(a) && (verHechos || !a.hecho));
+  const atr = agAtrasados.filter(pasa);
+  let html = '';
+  if (atr.length) {
+    html += `<div class="ag-dia atr">Pasó la fecha y no está tildado (último mes) · ${atr.length}</div>` + atr.map(a => agFilaHTML(a, true)).join('');
+  }
+  const porDia = {};
+  filas.forEach(a => (porDia[a.fecha] = porDia[a.fecha] || []).push(a));
+  Object.keys(porDia).sort().forEach(f => {
+    const d = new Date(f + 'T12:00:00');
+    const esHoy = f === hoy;
+    html += `<div class="ag-dia ${esHoy ? 'hoy' : ''}">${AG_DIAS[d.getDay()]} ${d.getDate()} de ${AG_MESES[d.getMonth()]}${esHoy ? ' · hoy' : ''}</div>`
+          + porDia[f].map(a => agFilaHTML(a, false)).join('');
+  });
+  if (!filas.length) html += `<div class="ag-vacio">No hay nada agendado ${agVistaAct === 'mes' ? 'este mes' : 'esta semana'}${filtro !== 'todo' ? ' con ese filtro' : ''}.</div>`;
+  document.getElementById('ag-body').innerHTML = html;
+  const pend = filas.filter(a => !a.hecho).length;
+  document.getElementById('ag-subtitulo').textContent =
+    `${pend} pendiente${pend !== 1 ? 's' : ''} en el período` + (atr.length ? ` · ${atr.length} atrasado${atr.length !== 1 ? 's' : ''} sin tildar` : '');
+}
+
+async function agToggle(id, hecho, chk) {
+  const a = agFilas.find(x => x.id === id) || agAtrasados.find(x => x.id === id);
+  if (!a) return;
+  let notas = a.notas || null;
+  if (hecho) {
+    const r = prompt('¿Qué resultó? (opcional, queda anotado en la bitácora)', notas || '');
+    if (r === null) { chk.checked = false; return; }
+    notas = r.trim() || null;
+  }
+  const { error } = await db.from('audiencias').update({ hecho, notas }).eq('id', id);
+  if (error) { toast('Error: ' + error.message, 'err'); chk.checked = !hecho; return; }
+  [agFilas, agAtrasados].forEach(l => l.forEach(x => { if (x.id === id) { x.hecho = hecho; x.notas = notas; } }));
+  if (hecho) agAtrasados = agAtrasados.filter(x => x.id !== id);
+  // Mantener al día la "próxima audiencia" de esa causa (igual que al tildar dentro de la causa)
+  const { data: pend } = await db.from('audiencias').select('fecha,tipo').eq('causa_id', a.causa_id).eq('hecho', false).order('fecha').limit(1);
+  const prox = pend && pend[0];
+  await db.from('causas').update({ prox_audiencia: prox ? prox.fecha : null, tipo: prox ? prox.tipo : '', updated_at: new Date().toISOString() }).eq('id', a.causa_id);
+  const idx = causas.findIndex(c => c.id === a.causa_id);
+  if (idx >= 0) { causas[idx].prox_audiencia = prox ? prox.fecha : null; causas[idx].tipo = prox ? prox.tipo : ''; }
+  if (a.causa_id === causaId) { const loc = audiencias.find(x => x.id === id); if (loc) { loc.hecho = hecho; loc.notas = notas; } renderAudiencias(); }
+  renderTabla();
+  renderAgendaGral();
+}
 
 // ── NOVEDADES PJN ────────────────────────────────────────────────────────
 let eventosPjn = [];
