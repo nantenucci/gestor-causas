@@ -231,6 +231,30 @@ th:nth-child(10),td:nth-child(10){ max-width:140px; } /* TRIBUNAL */
 .aud-nueva input:focus { border-color: var(--azul2); }
 .btn-add-aud { background: var(--azul); color: #fff; border: none; border-radius: 4px; padding: 6px 10px; font-size: 12px; cursor: pointer; white-space: nowrap; }
 .btn-add-aud:hover { background: var(--azul2); }
+.aud-nueva:has(.btn-plazo) { grid-template-columns: 140px 1fr auto auto; }
+.btn-plazo { background: #fff; color: var(--azul2); border: 1px solid var(--azul2); border-radius: 4px; padding: 6px 10px; font-size: 12px; cursor: pointer; white-space: nowrap; }
+.btn-plazo:hover, .btn-plazo.on { background: var(--azul-l); }
+.plz { margin-top: 8px; border: 1px solid var(--azul2); border-radius: 6px; background: var(--azul-l); padding: 10px 12px; }
+.plz-grid { display: grid; grid-template-columns: 100px 1fr 150px; gap: 8px; margin-bottom: 8px; }
+.plz select, .plz input { width: 100%; border: 1px solid var(--borde); border-radius: 4px; padding: 6px 8px; font-family: var(--sans); font-size: 11px; background: #fff; }
+.plz-otro { display: grid; grid-template-columns: 1fr 70px 130px; gap: 8px; margin-bottom: 8px; }
+.plz-chk { display: flex; gap: 6px; align-items: center; font-size: 11px; color: #555; margin-bottom: 8px; cursor: pointer; }
+.plz-chk input { width: auto; }
+.plz-venc { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; }
+.plz-venc .lbl { font-size: 11px; color: #555; }
+.plz-venc .f { font-size: 18px; font-weight: 600; color: var(--negro); }
+.plz-venc .q { font-size: 11px; font-weight: 600; }
+.plz-art { font-size: 11px; color: #555; margin-bottom: 6px; }
+.plz-alt { font-size: 11px; color: var(--negro); margin-bottom: 6px; }
+.plz-des { font-family: var(--mono); font-size: 10.5px; color: #555; line-height: 1.6; margin-bottom: 6px; }
+.plz-des .inh { color: var(--gris3); text-decoration: line-through; }
+.plz-des .fer { color: var(--rojo); }
+.plz-warn { font-size: 11px; background: var(--amar-l); color: #7a5a00; border-radius: 4px; padding: 5px 8px; margin-bottom: 4px; }
+.plz-alerta { font-size: 12px; font-weight: 600; background: var(--rojo-l); color: var(--rojo); border-radius: 4px; padding: 6px 8px; margin-bottom: 6px; }
+.plz-acc { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+.btn-sec { background: #fff; color: var(--negro); border: 1px solid var(--borde); border-radius: 4px; padding: 6px 10px; font-size: 12px; cursor: pointer; }
+.aud-vence { background: var(--rojo-l); color: var(--rojo); font-size: 9.5px; font-weight: 700; letter-spacing: .04em; padding: 1px 5px; border-radius: 3px; margin-right: 5px; }
+.aud-item.hecho .aud-vence { background: var(--gris2); color: var(--gris3); }
 
 /* NOTA RÁPIDA */
 .nota-btn { opacity: 0; background: none; border: 1px solid var(--borde); border-radius: 3px; padding: 2px 6px; font-size: 11px; cursor: pointer; color: var(--gris3); transition: all .1s; margin-left: 4px; }
@@ -553,6 +577,26 @@ tbody tr:hover .nota-btn { opacity: 1; }
           <input type="date" id="aud-nueva-fecha" placeholder="Fecha">
           <input type="text" id="aud-nueva-tipo" placeholder="Audiencia, vencimiento, gestión...">
           <button class="btn-add-aud" onclick="agregarAudiencia()">+ Agregar</button>
+          <button class="btn-plazo" id="btn-plazo" onclick="togglePlazo()">⏱ Calcular plazo</button>
+        </div>
+        <div class="plz" id="plz" style="display:none">
+          <div class="plz-grid">
+            <div class="pf"><label>Código</label>
+              <select id="plz-cod" onchange="plzLlenarTramites(); plzCalcular()"><option>CPPSF</option><option>CPPF</option><option>CPPN</option></select></div>
+            <div class="pf"><label>Trámite</label><select id="plz-tram" onchange="plzCalcular()"></select></div>
+            <div class="pf"><label id="plz-notif-lbl">Notificado el</label><input type="date" id="plz-notif" onchange="plzCalcular()"></div>
+          </div>
+          <div class="plz-otro" id="plz-otro" style="display:none">
+            <input type="text" id="plz-otro-desc" placeholder="Descripción (ej: contestar traslado)" oninput="plzCalcular()">
+            <input type="number" id="plz-otro-dias" min="1" max="365" value="5" oninput="plzCalcular()">
+            <select id="plz-otro-tipo" onchange="plzCalcular()"><option value="h">días hábiles</option><option value="c">días corridos</option></select>
+          </div>
+          <label class="plz-chk" id="plz-dif-wrap"><input type="checkbox" id="plz-dif" onchange="plzCalcular()"> Fundamentos diferidos (el plazo corre desde que se notifican los fundamentos, art. 384 CPPSF)</label>
+          <div id="plz-res"></div>
+          <div class="plz-acc">
+            <button class="btn-sec" onclick="togglePlazo(false)">Cancelar</button>
+            <button class="btn-add-aud" id="plz-agendar" onclick="plzAgendar()">📅 Agendar vencimiento</button>
+          </div>
         </div>
       </div>
 
@@ -984,6 +1028,8 @@ function abrirCausa(id) {
   document.getElementById('btn-elim').style.display = 'inline-block';
   document.getElementById('btn-pdf').style.display  = 'inline-block';
   document.getElementById('overlay').classList.add('open');
+  document.getElementById('plz-notif').value = '';
+  togglePlazo(false);
   cargarAudiencias(id);
 }
 
@@ -991,6 +1037,8 @@ function nuevaCausa() {
   causaId = null;
   caratulaDatos = {};
   CAMPOS_PANEL.forEach(id => document.getElementById(id).value = '');
+  document.getElementById('plz-notif').value = '';
+  togglePlazo(false);
   document.getElementById('ph-cuij').textContent = 'Nueva causa';
   document.getElementById('ph-car').textContent  = '—';
   document.getElementById('btn-elim').style.display = 'none';
@@ -1482,7 +1530,9 @@ function renderAudiencias() {
   lista.innerHTML = [...pendientes, ...hechas].map(a => {
     const niv = nivelFecha(a.fecha);
     const cls = a.hecho ? '' : niv.nivel === 0 ? 'urg' : niv.nivel === 1 ? 'prox' : 'ok';
-    const texto = a.pjn ? escH(a.tipo || 'Sin descripción') : linkificar(escH(a.tipo || 'Sin descripción'));
+    const esVence = !a.pjn && /^VENCE:\s*/.test(a.tipo || '');
+    const tipoTxt = esVence ? a.tipo.replace(/^VENCE:\s*/, '') : (a.tipo || 'Sin descripción');
+    const texto = a.pjn ? escH(tipoTxt) : (esVence ? '<span class="aud-vence">VENCE</span>' : '') + linkificar(escH(tipoTxt));
     const contenido = a.hecho && a.notas ? `${texto} — <span class="aud-res">${escH(a.notas)}</span>` : texto;
     const marca = a.pjn
       ? `<span class="aud-pjn-ico" title="Evento automático del sync PJN">🏛️</span>`
@@ -1552,6 +1602,266 @@ async function editarResultado(id) {
   if (error) { toast('Error: ' + error.message, 'err'); return; }
   a.notas = notas;
   renderAudiencias();
+}
+
+// ── CALCULADORA DE PLAZOS ────────────────────────────────────────────────
+// Solo plazos verificados contra el texto oficial (ver memoria del proyecto).
+// d = días; c = corridos (si no, hábiles); alt = hipótesis alternativa más larga.
+const PLZ_TRAMITES = {
+  CPPSF: [
+    { k: 'apel-demas', l: 'Apelación — demás casos', d: 5, art: 'art. 398 CPPSF' },
+    { k: 'apel-caut',  l: 'Apelación contra medida cautelar', d: 3, art: 'art. 398 CPPSF' },
+    { k: 'apel-sent',  l: 'Apelación contra sentencia', d: 10, art: 'art. 398 CPPSF' },
+    { k: 'repos',      l: 'Reposición por escrito', d: 3, art: 'art. 393 CPPSF', nota: 'Si la resolución se dictó en audiencia, la reposición se plantea oralmente en el acto.' },
+    { k: 'queja-m',    l: 'Queja por recurso denegado — mismo asiento', d: 3, art: 'art. 390 CPPSF' },
+    { k: 'queja-o',    l: 'Queja por recurso denegado — distinto asiento', d: 8, art: 'art. 390 CPPSF' },
+    { k: 'vista',      l: 'Vista o traslado sin plazo fijado', d: 3, art: 'art. 151 CPPSF' },
+    { k: 'p297',       l: 'Planteos del art. 297 (desde notificada la audiencia preliminar)', d: 5, art: 'art. 297 CPPSF' },
+    { k: 'abrev',      l: 'Acuerdo de abreviado (desde la notificación del art. 307)', d: 3, art: 'art. 344 CPPSF, s/ Ley 14.448' },
+    { k: 'victima',    l: 'Disconformidad de la víctima', d: 5, art: 'art. 291 CPPSF' },
+    { k: 'subsanar',   l: 'Subsanar defectos formales del recurso', d: 5, art: 'art. 400 CPPSF' },
+    { k: 'retardo',    l: 'Pronto despacho sin respuesta → habilita queja por retardo', d: 3, art: 'art. 157 CPPSF' },
+    { k: 'inconst',    l: 'Recurso de inconstitucionalidad', d: 10, art: 'art. 2 Ley 7055', nota: 'Ni la aclaratoria ni un recurso inadmisible interrumpen este plazo.' },
+    { k: 'queja-inc',  l: 'Queja por inconstitucionalidad denegada', d: 3, alt: 10, art: 'art. 8 Ley 7055 y art. 356 CPCC',
+      nota: '3 días si la Corte recibe en el lugar del juicio; 10 días si no. Para causas de Rosario no está claro cuál rige: se agenda la hipótesis corta.' },
+  ],
+  CPPF: [
+    { k: 'imp-demas',  l: 'Impugnación — demás casos', d: 5, art: 'art. 360 CPPF' },
+    { k: 'imp-caut',   l: 'Impugnación contra medida cautelar', d: 3, c: true, art: 'arts. 360 y 114 CPPF', nota: 'En medidas cautelares los días se cuentan corridos (art. 114).' },
+    { k: 'imp-sent',   l: 'Impugnación contra sentencia condenatoria o absolutoria', d: 10, art: 'art. 360 CPPF' },
+    { k: 'aclar',      l: 'Aclaratoria', d: 3, art: 'art. 113 CPPF', nota: 'Pedir aclaratoria suspende el plazo para impugnar.' },
+    { k: 'queja',      l: 'Queja por impugnación denegada', d: 5, art: 'art. 361 CPPF' },
+  ],
+  CPPN: [
+    { k: 'apel',       l: 'Apelación', d: 3, art: 'art. 450 CPPN' },
+    { k: 'apel-exc',   l: 'Apelación en incidente de excarcelación', d: 3, c: true, art: 'arts. 450 y 162 CPPN', nota: 'En excarcelación los plazos son continuos; si vence en feriado pasa al primer día hábil (art. 162).' },
+    { k: 'repos',      l: 'Reposición', d: 3, art: 'art. 447 CPPN' },
+    { k: 'adhes',      l: 'Adhesión al recurso', d: 3, art: 'art. 453 CPPN' },
+    { k: 'casac',      l: 'Recurso de casación', d: 10, art: 'art. 463 CPPN' },
+    { k: 'general',    l: 'Sin término fijado', d: 3, art: 'art. 161 CPPN' },
+  ],
+};
+
+let plzFeriadosTabla = null;   // filas de la tabla feriados (provinciales, asuetos, no laborables verificados)
+let plzUltimo = null;          // último cálculo, para agendar
+
+async function plzCargarFeriados() {
+  const { data, error } = await db.from('feriados').select('fecha,motivo,ambito,fuente');
+  if (error) { console.error('Error al cargar feriados:', error.message); plzFeriadosTabla = []; return; }
+  plzFeriadosTabla = data || [];
+}
+
+function plzISO(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+function plzSuma(d, n) { const x = new Date(d); x.setDate(x.getDate() + n); return x; }
+
+function plzPascua(a) {
+  const A = a % 19, b = Math.floor(a / 100), c = a % 100, d = Math.floor(b / 4), e = b % 4;
+  const f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3);
+  const h = (19 * A + b - d - g + 15) % 30, i = Math.floor(c / 4), k = c % 4;
+  const l = (32 + 2 * e + 2 * i - h - k) % 7, m = Math.floor((A + 11 * h + 22 * l) / 451);
+  const mes = Math.floor((h + l - 7 * m + 114) / 31), dia = ((h + l - 7 * m + 114) % 31) + 1;
+  return new Date(a, mes - 1, dia);
+}
+
+// Feriados nacionales de la Ley 27.399. Los trasladables siguen la regla general de la ley;
+// el decreto anual puede fijar otra cosa, por eso se marcan para avisar.
+function plzNacionales(a) {
+  const p = plzPascua(a), out = {};
+  const pon = (d, m, tras) => { out[plzISO(d)] = { motivo: m, tras: !!tras }; };
+  pon(new Date(a, 0, 1), 'Año Nuevo');
+  pon(plzSuma(p, -48), 'Carnaval'); pon(plzSuma(p, -47), 'Carnaval');
+  pon(new Date(a, 2, 24), 'Día de la Memoria');
+  pon(new Date(a, 3, 2), 'Malvinas');
+  pon(plzSuma(p, -2), 'Viernes Santo');
+  pon(new Date(a, 4, 1), 'Día del Trabajador');
+  pon(new Date(a, 4, 25), 'Revolución de Mayo');
+  pon(new Date(a, 5, 20), 'Belgrano');
+  pon(new Date(a, 6, 9), 'Independencia');
+  pon(new Date(a, 11, 8), 'Inmaculada Concepción');
+  pon(new Date(a, 11, 25), 'Navidad');
+  const trasladar = (d, esGuemes) => {
+    const wd = d.getDay(); // 0 dom … 6 sáb
+    if (wd === 2 && !esGuemes) return plzSuma(d, -1);
+    if (wd === 3) return plzSuma(d, -2);
+    if (wd === 4) return plzSuma(d, 4);
+    if (wd === 5) return plzSuma(d, 3);
+    return d;
+  };
+  pon(trasladar(new Date(a, 5, 17), true), 'Güemes (trasladable)', true);
+  pon(trasladar(new Date(a, 7, 17)), 'San Martín (trasladable)', true);
+  pon(trasladar(new Date(a, 9, 12)), 'Diversidad Cultural (trasladable)', true);
+  pon(trasladar(new Date(a, 10, 20)), 'Soberanía Nacional (trasladable)', true);
+  return out;
+}
+
+function plzMapaFeriados(desde, hasta) {
+  const mapa = {};
+  for (let a = desde.getFullYear(); a <= hasta.getFullYear(); a++) Object.assign(mapa, plzNacionales(a));
+  (plzFeriadosTabla || []).forEach(f => { mapa[f.fecha] = { motivo: f.motivo, tabla: true, ambito: f.ambito }; });
+  return mapa;
+}
+
+// Cuenta desde el día siguiente a la notificación (CPPSF 152 / CPPF 114 / CPPN 161).
+function plzComputar(notifISO, dias, corridos, codigo) {
+  const notif = new Date(notifISO + 'T00:00:00');
+  const fer = plzMapaFeriados(notif, plzSuma(notif, dias * 3 + 60));
+  const inhabil = d => d.getDay() === 0 || d.getDay() === 6 || !!fer[plzISO(d)];
+  const bit = [];
+  let cur = new Date(notif), n = 0;
+  if (corridos) {
+    cur = plzSuma(notif, dias);
+    for (let i = 1; i <= dias; i++) bit.push({ d: plzSuma(notif, i), n: i });
+    if (codigo === 'CPPN') {             // art. 162: si vence en feriado, pasa al primer hábil
+      if (inhabil(cur)) {
+        while (inhabil(cur)) cur = plzSuma(cur, 1);
+        bit.push({ d: new Date(cur), prorroga: true });
+      }
+    }
+  } else {
+    while (n < dias) {
+      cur = plzSuma(cur, 1);
+      const iso = plzISO(cur);
+      if (cur.getDay() === 0 || cur.getDay() === 6) bit.push({ d: new Date(cur), inh: 'fin de semana' });
+      else if (fer[iso]) bit.push({ d: new Date(cur), inh: fer[iso].motivo, fer: fer[iso] });
+      else { n++; bit.push({ d: new Date(cur), n }); }
+    }
+  }
+  return { venc: cur, bit, fer, inhabil };
+}
+
+function plzHabilesHasta(vencISO, inhabil) {
+  const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+  const v = new Date(vencISO + 'T00:00:00');
+  if (v < hoy) return -1;
+  let n = 0;
+  for (let d = plzSuma(hoy, 1); d <= v; d = plzSuma(d, 1)) if (!inhabil(d)) n++;
+  return n;
+}
+
+const PLZ_DIAS = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
+const PLZ_DIAS_L = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+
+function plzCodigoDeCausa() {
+  const c = document.getElementById('f-codigo').value;
+  return c === 'CPPF' ? 'CPPF' : 'CPPSF';
+}
+
+function plzLlenarTramites() {
+  const cod = document.getElementById('plz-cod').value;
+  const sel = document.getElementById('plz-tram');
+  sel.innerHTML = PLZ_TRAMITES[cod].map(t =>
+    `<option value="${t.k}">${escH(t.l)} — ${t.d}${t.alt ? '/' + t.alt : ''} días ${t.c ? 'corridos' : 'hábiles'}</option>`
+  ).join('') + '<option value="otro">Otro plazo (lo cargo yo)</option>';
+  document.getElementById('plz-dif-wrap').style.display = cod === 'CPPSF' ? '' : 'none';
+}
+
+function togglePlazo(abrir) {
+  const panel = document.getElementById('plz');
+  const abre = abrir === undefined ? panel.style.display === 'none' : abrir;
+  panel.style.display = abre ? '' : 'none';
+  document.getElementById('btn-plazo').classList.toggle('on', abre);
+  if (!abre) return;
+  document.getElementById('plz-cod').value = plzCodigoDeCausa();
+  plzLlenarTramites();
+  document.getElementById('plz-dif').checked = false;
+  if (!document.getElementById('plz-notif').value) document.getElementById('plz-notif').value = plzISO(new Date());
+  if (plzFeriadosTabla === null) plzCargarFeriados().then(plzCalcular);
+  plzCalcular();
+}
+
+function plzCalcular() {
+  const res = document.getElementById('plz-res');
+  const cod = document.getElementById('plz-cod').value;
+  const k = document.getElementById('plz-tram').value;
+  const otro = k === 'otro';
+  document.getElementById('plz-otro').style.display = otro ? '' : 'none';
+  const dif = cod === 'CPPSF' && document.getElementById('plz-dif').checked;
+  document.getElementById('plz-notif-lbl').textContent = dif ? 'Notificado de los fundamentos el' : 'Notificado el';
+  const notif = document.getElementById('plz-notif').value;
+  plzUltimo = null;
+  if (!notif) { res.innerHTML = '<div class="plz-art">Poné la fecha de notificación.</div>'; return; }
+
+  let t;
+  if (otro) {
+    const dias = parseInt(document.getElementById('plz-otro-dias').value, 10);
+    if (!dias || dias < 1) { res.innerHTML = '<div class="plz-art">Poné la cantidad de días.</div>'; return; }
+    t = { l: document.getElementById('plz-otro-desc').value.trim() || 'Plazo', d: dias,
+          c: document.getElementById('plz-otro-tipo').value === 'c', art: 'plazo cargado a mano', otro: true };
+  } else {
+    t = PLZ_TRAMITES[cod].find(x => x.k === k);
+  }
+  const r = plzComputar(notif, t.d, t.c, cod);
+  const vISO = plzISO(r.venc);
+  const quedan = plzHabilesHasta(vISO, r.inhabil);
+  const hoyISO = plzISO(new Date());
+
+  const avisos = [];
+  // feriados de la tabla para los años que toca el cómputo
+  const anios = [...new Set([new Date(notif + 'T00:00:00').getFullYear(), r.venc.getFullYear()])];
+  const tabla = plzFeriadosTabla || [];
+  anios.forEach(a => {
+    if (!tabla.some(f => f.fecha.startsWith(a + '-') && f.ambito !== 'no laborable'))
+      avisos.push(`No hay feriados provinciales ni asuetos judiciales cargados para ${a}: solo se descontaron los nacionales.`);
+    if (!tabla.some(f => f.fecha.startsWith(a + '-') && f.ambito === 'no laborable'))
+      avisos.push(`No están cargados los días no laborables con fines turísticos de ${a}.`);
+  });
+  if (r.bit.some(b => b.fer && b.fer.tras))
+    avisos.push('Se descontó un feriado trasladable con la regla de la Ley 27.399; verificá la fecha en el decreto del año.');
+  if (cod !== 'CPPSF' && r.bit.some(b => b.d.getMonth() === 0 || b.d.getMonth() === 6))
+    avisos.push('El plazo pasa por enero o julio: en el fuero federal verificá la acordada de feria de la CSJN (no se suspendió nada).');
+  if (cod === 'CPPF' && t.c && r.inhabil(r.venc))
+    avisos.push('Vence en día inhábil y el CPPF no prevé pasarlo al día siguiente en días corridos: tomalo como vencido ese día.');
+  avisos.push('Los plazos son perentorios: no planifiques sobre las 2 horas de gracia del día siguiente.');
+
+  let alerta = '';
+  if (quedan < 0) alerta = `<div class="plz-alerta">⚠ Este plazo YA VENCIÓ el ${fmtFecha(vISO)}.</div>`;
+  else if (vISO === hoyISO) alerta = '<div class="plz-alerta">⚠ VENCE HOY.</div>';
+  else if (quedan === 1) alerta = '<div class="plz-alerta">⚠ VENCE MAÑANA (próximo día hábil).</div>';
+
+  const qtxt = quedan < 0 ? 'vencido' : vISO === hoyISO ? 'vence hoy' : `quedan ${quedan} día${quedan === 1 ? '' : 's'} hábil${quedan === 1 ? '' : 'es'}`;
+  const qcol = quedan < 0 || quedan <= 3 ? 'var(--rojo)' : quedan <= 10 ? 'var(--amar)' : 'var(--verde)';
+
+  const des = r.bit.map(b => {
+    const f = `${String(b.d.getDate()).padStart(2, '0')}/${String(b.d.getMonth() + 1).padStart(2, '0')} ${PLZ_DIAS[b.d.getDay()]}`;
+    if (b.prorroga) return `<span>${f} (prórroga art. 162)</span>`;
+    if (b.inh === 'fin de semana') return `<span class="inh">${f}</span>`;
+    if (b.inh) return `<span class="fer">${f} feriado: ${escH(b.inh)}</span>`;
+    return `<span>${f} (${b.n})</span>`;
+  }).join(' · ');
+
+  let altTxt = '';
+  if (t.alt) {
+    const r2 = plzComputar(notif, t.alt, t.c, cod);
+    altTxt = `<div class="plz-alt">Hipótesis larga (${t.alt} días): vence el ${PLZ_DIAS_L[r2.venc.getDay()]} ${fmtFecha(plzISO(r2.venc))}. Se agenda la corta.</div>`;
+  }
+
+  res.innerHTML = `${alerta}
+    <div class="plz-venc"><span class="lbl">Vence</span>
+      <span class="f">${PLZ_DIAS_L[r.venc.getDay()]} ${fmtFecha(vISO)}</span>
+      <span class="q" style="color:${qcol}">${qtxt}</span></div>
+    <div class="plz-art">${t.d} días ${t.c ? 'corridos' : 'hábiles'} · ${escH(t.art)}${t.nota ? ' · ' + escH(t.nota) : ''}</div>
+    ${altTxt}
+    <div class="plz-des">${des}</div>
+    ${avisos.map(a => `<div class="plz-warn">${escH(a)}</div>`).join('')}`;
+
+  plzUltimo = {
+    fecha: vISO,
+    tipo: `VENCE: ${t.l} · ${t.art} · ${t.d} días ${t.c ? 'corridos' : 'hábiles'}${t.alt ? ' (hipótesis corta; larga: ' + t.alt + ')' : ''} · notif.${dif ? ' fundamentos' : ''} ${fmtFecha(notif)}`,
+  };
+}
+
+async function plzAgendar() {
+  if (!plzUltimo) { toast('Completá la fecha de notificación.', 'err'); return; }
+  if (!causaId) { toast('Guardá la causa primero.', 'err'); return; }
+  const nueva = { id: uid(), causa_id: causaId, fecha: plzUltimo.fecha, tipo: plzUltimo.tipo, hecho: false };
+  const { error } = await db.from('audiencias').insert(nueva);
+  if (error) { toast('Error: ' + error.message, 'err'); return; }
+  audiencias.push(nueva);
+  audiencias.sort((a, b) => a.fecha.localeCompare(b.fecha));
+  renderAudiencias();
+  actualizarProximoEvento();
+  togglePlazo(false);
+  toast('Vencimiento agendado ✓', 'ok');
 }
 
 async function actualizarProximoEvento() {
