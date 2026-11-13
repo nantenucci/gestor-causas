@@ -511,6 +511,7 @@ tbody tr:hover .nota-btn { opacity: 1; }
           <div class="pf full">
             <div class="rad-head"><span>Historial de radicación</span><button class="btn-sec" onclick="toggleRadForm()">↗ Pasó a otra instancia</button></div>
             <div class="rad-list" id="rad-list"></div>
+            <div id="rad-undo" style="display:none;align-items:center;gap:10px;flex-wrap:wrap;margin-top:6px;padding:7px 10px;border-radius:5px;background:var(--amar-l);font-size:12px"></div>
             <div class="rad-form" id="rad-form">
               <div class="rad-grid">
                 <div><label>Fecha</label><input type="date" id="rad-fecha"></div>
@@ -1444,6 +1445,7 @@ let radicaciones = [];
 
 async function cargarRadicaciones(id) {
   radicaciones = [];
+  ocultarRadUndo();
   renderRadicaciones('Cargando…');
   const { data, error } = await db.from('radicaciones').select('*').eq('causa_id', id)
     .order('fecha', { ascending: false }).order('created_at', { ascending: false });
@@ -1526,7 +1528,37 @@ async function eliminarRadicacion(id) {
   radicaciones = radicaciones.filter(x => x.id !== id);
   renderRadicaciones();
   if (eraActual) await sincronizarTribunal();
-  toast('Pase borrado', 'ok');
+  mostrarRadUndo(r);
+}
+
+// "Deshacer" durante 20 segundos después de borrar un pase
+let radBorrado = null, radUndoTimer = null;
+function mostrarRadUndo(r) {
+  radBorrado = { ...r };
+  const el = document.getElementById('rad-undo');
+  el.innerHTML = `Borraste el pase a <b>${escH(r.organo)}</b> del ${fmtFecha(r.fecha)}. <button class="btn-sec" onclick="deshacerRadicacion()">↶ Deshacer</button>`;
+  el.style.display = 'flex';
+  clearTimeout(radUndoTimer);
+  radUndoTimer = setTimeout(ocultarRadUndo, 20000);
+}
+function ocultarRadUndo() {
+  clearTimeout(radUndoTimer);
+  radBorrado = null;
+  const el = document.getElementById('rad-undo');
+  if (el) el.style.display = 'none';
+}
+async function deshacerRadicacion() {
+  const r = radBorrado;
+  if (!r) return;
+  if (r.causa_id !== causaId) { ocultarRadUndo(); toast('Abrí de nuevo esa causa para deshacer.', 'err'); return; }
+  const { error } = await db.from('radicaciones').insert(r);
+  if (error) { toast('No se pudo deshacer: ' + error.message, 'err'); return; }
+  ocultarRadUndo();
+  radicaciones.push(r);
+  radicaciones.sort((a, b) => b.fecha.localeCompare(a.fecha) || (b.created_at || '').localeCompare(a.created_at || ''));
+  renderRadicaciones();
+  await sincronizarTribunal();
+  toast('Pase recuperado ✓', 'ok');
 }
 
 // ── AGENDA GENERAL DEL ESTUDIO ───────────────────────────────────────────
