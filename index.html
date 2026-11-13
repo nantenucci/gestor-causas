@@ -175,6 +175,25 @@ th:nth-child(10),td:nth-child(10){ max-width:140px; } /* TRIBUNAL */
 .al-dias.urg { background: var(--rojo-l); color: var(--rojo); } .al-dias.prox { background: var(--amar-l); color: var(--amar); }
 .al-dias.venc-urg { background: #FDE8FF; color: #86198F; } .al-dias.venc { background: var(--viol-l); color: var(--viol); }
 .ag-modal { width: 760px; }
+.rad-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.rad-head span { font-size: 11px; font-weight: 600; color: var(--gris3); text-transform: uppercase; letter-spacing: .05em; flex: 1; }
+.rad-list { border: 1px solid var(--borde); border-radius: 5px; overflow: hidden; }
+.rad-item { display: grid; grid-template-columns: 74px minmax(0,1fr) 20px; gap: 10px; padding: 7px 10px; border-top: 1px solid var(--borde); align-items: start; font-size: 12px; }
+.rad-item:first-child { border-top: none; }
+.rad-item.actual { background: var(--azul-l); }
+.rad-f { font-family: var(--mono); font-size: 11px; color: var(--gris3); padding-top: 1px; }
+.rad-org { font-weight: 600; }
+.rad-det { font-size: 11px; color: var(--gris3); margin-top: 1px; }
+.rad-num { font-family: var(--mono); font-size: 11px; color: var(--gris3); white-space: nowrap; padding-top: 1px; }
+.rad-tag { background: var(--azul); color: #fff; font-size: 9px; font-weight: 700; letter-spacing: .05em; padding: 1px 5px; border-radius: 3px; margin-left: 6px; vertical-align: 1px; }
+.rad-del { background: none; border: none; color: var(--gris3); cursor: pointer; font-size: 12px; padding: 0; }
+.rad-del:hover { color: var(--rojo); }
+.rad-form { border: 1px solid var(--azul2); border-radius: 5px; padding: 10px 12px; margin-top: 8px; display: none; }
+.rad-form.open { display: block; }
+.rad-grid, .rad-grid2 { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 8px; margin-bottom: 8px; }
+.rad-grid .rad-org-f { grid-column: 1 / -1; order: -1; }
+.rad-form label { display: block; font-size: 10px; color: var(--gris3); margin-bottom: 2px; }
+.rad-form input, .rad-form select { width: 100%; font-family: var(--sans); font-size: 12px; padding: 6px 8px; border: 1px solid var(--borde); border-radius: 4px; }
 .ag-ctrl { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding: 10px 22px; border-bottom: 1px solid var(--borde); background: #fff; }
 .ag-ctrl button, .ag-ctrl select { font-family: var(--sans); font-size: 12px; border: 1px solid var(--borde); background: #fff; border-radius: 4px; padding: 5px 10px; cursor: pointer; }
 .ag-ctrl button.on { background: var(--azul); color: #fff; border-color: var(--azul); }
@@ -488,7 +507,26 @@ tbody tr:hover .nota-btn { opacity: 1; }
       <div class="ps">
         <div class="ps-title">Tribunal y estado</div>
         <div class="pgrid">
-          <div class="pf full"><label>Tribunal / Fiscal</label><input id="f-tribunal" placeholder="Ej: Juzgado Penal 5 / Fiscal Eiris"></div>
+          <div class="pf full"><label>Tribunal / Fiscal (radicación actual)</label><input id="f-tribunal" placeholder="Ej: Juzgado Penal 5 / Fiscal Eiris"></div>
+          <div class="pf full">
+            <div class="rad-head"><span>Historial de radicación</span><button class="btn-sec" onclick="toggleRadForm()">↗ Pasó a otra instancia</button></div>
+            <div class="rad-list" id="rad-list"></div>
+            <div class="rad-form" id="rad-form">
+              <div class="rad-grid">
+                <div><label>Fecha</label><input type="date" id="rad-fecha"></div>
+                <div class="rad-org-f"><label>Órgano</label><input id="rad-organo" placeholder="Ej: Cámara de Apelación en lo Penal — Sala 2"></div>
+                <div><label>N.º en esa instancia</label><input id="rad-numero" placeholder="Ej: 1234/26"></div>
+              </div>
+              <div class="rad-grid2">
+                <div><label>Motivo</label><select id="rad-motivo"><option>Apelación</option><option>Elevación a juicio</option><option>Casación / inconstitucionalidad</option><option>Queja</option><option>Vuelve a origen</option><option>Cambio de fiscal o juez</option><option>Otro</option></select></div>
+                <div><label>Jueces, fiscal o detalle</label><input id="rad-detalle" placeholder="Vocales, fiscal interviniente…"></div>
+              </div>
+              <div style="display:flex;gap:8px;justify-content:flex-end">
+                <button class="btn-sec" onclick="toggleRadForm(false)">Cancelar</button>
+                <button class="btn-plazo" onclick="guardarRadicacion()">Guardar pase</button>
+              </div>
+            </div>
+          </div>
           <div class="pf"><label>Estado procesal</label>
             <select id="f-estado">
               <option value="">—</option>
@@ -1078,6 +1116,8 @@ function abrirCausa(id) {
   document.getElementById('plz-notif').value = '';
   togglePlazo(false);
   cargarAudiencias(id);
+  toggleRadForm(false);
+  cargarRadicaciones(id);
 }
 
 function nuevaCausa() {
@@ -1093,6 +1133,8 @@ function nuevaCausa() {
   document.getElementById('overlay').classList.add('open');
   audiencias = [];
   renderAudiencias();
+  toggleRadForm(false);
+  radicaciones = []; renderRadicaciones();
   setRolFicha('Defensa');
   mostrarAlojamiento();
 }
@@ -1396,6 +1438,96 @@ function abrirAlertas() {
 }
 
 function cerrarAlertas(e) { cerrarModal('al-overlay', e); }
+
+// ── HISTORIAL DE RADICACIÓN ──────────────────────────────────────────────
+let radicaciones = [];
+
+async function cargarRadicaciones(id) {
+  radicaciones = [];
+  renderRadicaciones('Cargando…');
+  const { data, error } = await db.from('radicaciones').select('*').eq('causa_id', id)
+    .order('fecha', { ascending: false }).order('created_at', { ascending: false });
+  if (id !== causaId) return; // se abrió otra causa mientras cargaba
+  if (error) { renderRadicaciones('No se pudo cargar el historial: ' + error.message); return; }
+  radicaciones = data || [];
+  renderRadicaciones();
+}
+
+function renderRadicaciones(msg) {
+  const el = document.getElementById('rad-list');
+  if (msg || !radicaciones.length) {
+    el.innerHTML = `<div style="font-size:11px;color:var(--gris3);padding:8px 10px">${escH(msg || (causaId ? 'Sin pases registrados. El primero que cargues queda como radicación actual.' : 'Guardá la causa para registrar pases.'))}</div>`;
+    return;
+  }
+  el.innerHTML = radicaciones.map((r, i) => {
+    const det = [r.numero ? `<span class="rad-num">N.º ${escH(r.numero)}</span>` : '', escH(r.motivo || ''), escH(r.detalle || '')].filter(Boolean).join(' · ');
+    return `<div class="rad-item ${i === 0 ? 'actual' : ''}">
+      <span class="rad-f">${fmtFecha(r.fecha)}</span>
+      <div><div class="rad-org">${escH(r.organo)}${i === 0 ? '<span class="rad-tag">ACTUAL</span>' : ''}</div>${det ? `<div class="rad-det">${det}</div>` : ''}</div>
+      <button class="rad-del" onclick="eliminarRadicacion('${r.id}')" title="Borrar este pase">✕</button>
+    </div>`;
+  }).join('');
+}
+
+function toggleRadForm(abrir) {
+  const f = document.getElementById('rad-form');
+  const open = abrir === undefined ? !f.classList.contains('open') : abrir;
+  f.classList.toggle('open', open);
+  if (open) {
+    if (!causaId) { f.classList.remove('open'); toast('Guardá la causa primero.', 'err'); return; }
+    ['rad-organo', 'rad-numero', 'rad-detalle'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('rad-motivo').selectedIndex = 0;
+    document.getElementById('rad-fecha').value = agISO(new Date());
+    document.getElementById('rad-organo').focus();
+  }
+}
+
+async function sincronizarTribunal() {
+  // La radicación más reciente es la que se muestra como "Tribunal / Fiscal" en la ficha, la lista y la carátula
+  const actual = radicaciones[0];
+  if (!actual || !causaId) return;
+  document.getElementById('f-tribunal').value = actual.organo;
+  const { error } = await db.from('causas').update({ tribunal: actual.organo, updated_at: new Date().toISOString() }).eq('id', causaId);
+  if (error) { toast('El pase se guardó, pero no se pudo actualizar el tribunal: ' + error.message, 'err'); return; }
+  const idx = causas.findIndex(c => c.id === causaId);
+  if (idx >= 0) causas[idx].tribunal = actual.organo;
+  renderTabla();
+}
+
+async function guardarRadicacion() {
+  if (!causaId) { toast('Guardá la causa primero.', 'err'); return; }
+  const fecha  = document.getElementById('rad-fecha').value;
+  const organo = document.getElementById('rad-organo').value.trim();
+  if (!fecha)  { toast('Poné la fecha del pase.', 'err'); return; }
+  if (!organo) { toast('Poné a qué órgano pasó.', 'err'); return; }
+  const nueva = {
+    id: uid(), causa_id: causaId, fecha, organo,
+    numero:  document.getElementById('rad-numero').value.trim() || null,
+    motivo:  document.getElementById('rad-motivo').value,
+    detalle: document.getElementById('rad-detalle').value.trim() || null,
+    created_at: new Date().toISOString(),
+  };
+  const { error } = await db.from('radicaciones').insert(nueva);
+  if (error) { toast('Error: ' + error.message, 'err'); return; }
+  radicaciones.push(nueva);
+  radicaciones.sort((a, b) => b.fecha.localeCompare(a.fecha) || (b.created_at || '').localeCompare(a.created_at || ''));
+  renderRadicaciones();
+  toggleRadForm(false);
+  await sincronizarTribunal();
+  toast(radicaciones[0].id === nueva.id ? 'Pase registrado ✓ — es la radicación actual' : 'Pase registrado ✓ (tiene fecha anterior a la actual)', 'ok');
+}
+
+async function eliminarRadicacion(id) {
+  const r = radicaciones.find(x => x.id === id);
+  if (!r || !confirm(`¿Borrar el pase a "${r.organo}" del ${fmtFecha(r.fecha)}?`)) return;
+  const eraActual = radicaciones[0] && radicaciones[0].id === id;
+  const { error } = await db.from('radicaciones').delete().eq('id', id);
+  if (error) { toast('Error: ' + error.message, 'err'); return; }
+  radicaciones = radicaciones.filter(x => x.id !== id);
+  renderRadicaciones();
+  if (eraActual) await sincronizarTribunal();
+  toast('Pase borrado', 'ok');
+}
 
 // ── AGENDA GENERAL DEL ESTUDIO ───────────────────────────────────────────
 let agFilas = [], agAtrasados = [], agVistaAct = 'semana', agBase = null;
