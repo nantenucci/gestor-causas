@@ -175,6 +175,27 @@ th:nth-child(10),td:nth-child(10){ max-width:140px; } /* TRIBUNAL */
 .al-dias.urg { background: var(--rojo-l); color: var(--rojo); } .al-dias.prox { background: var(--amar-l); color: var(--amar); }
 .al-dias.venc-urg { background: #FDE8FF; color: #86198F; } .al-dias.venc { background: var(--viol-l); color: var(--viol); }
 .ag-modal { width: 760px; }
+.vin-list { border: 1px solid var(--borde); border-radius: 5px; overflow: hidden; }
+.vin-item { display: grid; grid-template-columns: 170px minmax(0,1fr) auto; gap: 10px; padding: 7px 10px; border-top: 1px solid var(--borde); align-items: center; font-size: 12px; }
+.vin-item:first-child { border-top: none; }
+.vin-tipo { justify-self: start; font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 4px; background: var(--azul-l); color: var(--azul); }
+.vin-tipo.inc { background: var(--amar-l); color: var(--amar); }
+.vin-tipo.madre { background: var(--viol-l); color: var(--viol); }
+.vin-tipo.otra { background: var(--gris); color: var(--gris3); }
+.vin-nom { font-weight: 600; }
+.vin-sub { font-size: 11px; color: var(--gris3); margin-top: 1px; }
+.vin-acc { display: flex; gap: 6px; align-items: center; }
+.vin-sug { display: flex; align-items: center; gap: 8px; margin-top: 6px; padding: 6px 10px; border-radius: 5px; background: var(--azul-l); font-size: 12px; }
+.vin-form { border: 1px solid var(--azul2); border-radius: 5px; padding: 10px 12px; margin-top: 8px; display: none; }
+.vin-form.open { display: block; }
+.vin-form label { display: block; font-size: 10px; color: var(--gris3); margin-bottom: 2px; }
+.vin-form input, .vin-form select { width: 100%; font-family: var(--sans); font-size: 12px; padding: 6px 8px; border: 1px solid var(--borde); border-radius: 4px; }
+.vin-res { border: 1px solid var(--borde); border-radius: 4px; margin-top: 4px; max-height: 180px; overflow-y: auto; }
+.vin-res div { padding: 6px 8px; font-size: 12px; cursor: pointer; border-top: 1px solid var(--borde); }
+.vin-res div:first-child { border-top: none; }
+.vin-res div:hover, .vin-res div.sel { background: var(--azul-l); }
+.vin-res .manual { color: var(--azul2); }
+.vin-cnt { font-size: 10px; color: var(--azul2); margin-right: 4px; white-space: nowrap; }
 .rad-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
 .rad-head span { font-size: 11px; font-weight: 600; color: var(--gris3); text-transform: uppercase; letter-spacing: .05em; flex: 1; }
 .rad-list { border: 1px solid var(--borde); border-radius: 5px; overflow: hidden; }
@@ -627,6 +648,28 @@ tbody tr:hover .nota-btn { opacity: 1; }
       </div>
 
       <div class="ps full-col">
+        <div class="ps-title" style="display:flex;align-items:center">Causas vinculadas e incidentes<span style="flex:1"></span><button class="btn-sec" style="text-transform:none;letter-spacing:0" onclick="toggleVinForm()">+ Vincular</button></div>
+        <div class="vin-list" id="vin-list"></div>
+        <div id="vin-sug"></div>
+        <div class="vin-form" id="vin-form">
+          <div style="display:grid;grid-template-columns:190px minmax(0,1fr);gap:8px;margin-bottom:8px">
+            <div><label>Tipo</label><select id="vin-tipo">
+              <option>Incidente de excarcelación</option><option>Incidente de cese de prisión</option><option>Incidente (otro)</option>
+              <option>Conexa</option><option>Acumulada</option><option>Queja / recurso</option><option>Otra</option></select></div>
+            <div><label id="vin-lbl">Buscar en el Gestor (apellido, carátula o CUIJ)</label>
+              <input id="vin-q" autocomplete="off" oninput="vinBuscar()" placeholder="Ej: Pérez o 21-0977">
+              <div class="vin-res" id="vin-res" style="display:none"></div>
+              <input id="vin-texto" style="display:none" placeholder="Ej: Divorcio Rojas c/ Riveros — Familia 3ª Nom.">
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;justify-content:flex-end">
+            <button class="btn-sec" onclick="toggleVinForm(false)">Cancelar</button>
+            <button class="btn-plazo" onclick="guardarVinculo()">Vincular</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="ps full-col">
         <div class="ps-title">Agenda</div>
         <div class="aud-list" id="aud-list"><div style="font-size:11px;color:var(--gris3)">Sin eventos cargados.</div></div>
         <div class="aud-nueva">
@@ -964,6 +1007,7 @@ async function cargar() {
   loading(false);
   if (error) { toast('Error al cargar: ' + error.message, 'err'); return; }
   causas = data || [];
+  await cargarVinculos();
   renderTabla();
   mostrarAlertas();
   cargarEventosPjn();
@@ -1034,7 +1078,7 @@ function renderTabla() {
     return `<tr onclick="abrirCausa('${c.id}')">
       <td>${urgB}</td>
       <td class="cuij-mono">${escH(c.cuij) || '—'}</td>
-      <td title="${escH(c.caratula)}">${escH(c.caratula) || '—'}</td>
+      <td title="${escH(c.caratula)}">${vinCuenta(c.id) ? `<span class="vin-cnt" title="Causas vinculadas e incidentes">🔗${vinCuenta(c.id)}</span>` : ''}${escH(c.caratula) || '—'}</td>
       <td title="${escH(c.clienteVis)}">${c.rol === 'Querella'
         ? `${escH(c.clienteVis) || '—'} <span class="rol-badge">Querella</span><div class="aloj-sub">c/ ${escH(c.imputado) || '—'}</div>`
         : escH(c.clienteVis) || '—'}</td>
@@ -1119,6 +1163,8 @@ function abrirCausa(id) {
   cargarAudiencias(id);
   toggleRadForm(false);
   cargarRadicaciones(id);
+  toggleVinForm(false);
+  renderVinculos();
 }
 
 function nuevaCausa() {
@@ -1136,6 +1182,7 @@ function nuevaCausa() {
   renderAudiencias();
   toggleRadForm(false);
   radicaciones = []; renderRadicaciones();
+  toggleVinForm(false); renderVinculos();
   setRolFicha('Defensa');
   mostrarAlojamiento();
 }
@@ -1559,6 +1606,141 @@ async function deshacerRadicacion() {
   renderRadicaciones();
   await sincronizarTribunal();
   toast('Pase recuperado ✓', 'ok');
+}
+
+// ── CAUSAS VINCULADAS E INCIDENTES ───────────────────────────────────────
+let vinculos = [];          // todos los vínculos (son pocos: se cargan una vez con las causas)
+let vinSel = null;          // causa elegida en el buscador, o 'manual'
+
+async function cargarVinculos() {
+  const { data, error } = await db.from('vinculos').select('*').order('created_at');
+  vinculos = error ? [] : (data || []);
+}
+function vinCuenta(id) { return vinculos.filter(v => v.causa_id === id || v.destino_id === id).length; }
+function vinCssTipo(t) { return /^Incidente|^Queja/.test(t) ? 'inc' : t === 'Otra' ? 'otra' : ''; }
+function vinCuijDig(s) { return String(s || '').replace(/\D/g, ''); }
+
+function renderVinculos() {
+  const el = document.getElementById('vin-list');
+  if (!causaId) {
+    el.innerHTML = '<div style="font-size:11px;color:var(--gris3);padding:8px 10px">Guardá la causa para vincular otras.</div>';
+    document.getElementById('vin-sug').innerHTML = '';
+    return;
+  }
+  const mios = vinculos.filter(v => v.causa_id === causaId || v.destino_id === causaId);
+  if (!mios.length) {
+    el.innerHTML = '<div style="font-size:11px;color:var(--gris3);padding:8px 10px">Sin causas vinculadas.</div>';
+  } else {
+    el.innerHTML = mios.map(v => {
+      const inverso = v.destino_id === causaId;            // esta causa es la vinculada desde otra
+      const otraId = inverso ? v.causa_id : v.destino_id;
+      const otra = otraId ? causas.find(c => c.id === otraId) : null;
+      let tipo = v.tipo, cls = vinCssTipo(v.tipo);
+      if (inverso && cls === 'inc') { tipo = 'Causa madre'; cls = 'madre'; }
+      if (!otra && !otraId) cls = 'otra';
+      const nom = otra ? (otra.caratula || otra.imputado || otra.cuij || 'Causa') : (v.texto || 'Causa borrada');
+      const sub = otra ? [otra.cuij, otra.tribunal, otra.prox_audiencia ? 'próx. ' + fmtFecha(otra.prox_audiencia) : ''].filter(Boolean).map(escH).join(' · ')
+                       : (otraId ? 'La causa ya no está en el Gestor' : 'No está cargada en el Gestor');
+      return `<div class="vin-item">
+        <span class="vin-tipo ${cls}">${escH(tipo)}</span>
+        <div><div class="vin-nom">${escH(nom)}</div><div class="vin-sub">${sub}</div></div>
+        <div class="vin-acc">
+          ${otra ? `<button class="btn-sec" onclick="abrirCausa('${otra.id}')">Ir a la causa →</button>` : ''}
+          <button class="rad-del" onclick="eliminarVinculo('${v.id}')" title="Quitar vínculo">✕</button>
+        </div>
+      </div>`;
+    }).join('');
+  }
+  renderVinSugerencias();
+}
+
+// Si en los datos de la carátula o las notas aparece el CUIJ de otra causa cargada, sugiere vincularla
+function renderVinSugerencias() {
+  const cont = document.getElementById('vin-sug');
+  const c = causas.find(x => x.id === causaId);
+  if (!c) { cont.innerHTML = ''; return; }
+  const texto = JSON.stringify(c.caratula_datos || {}) + ' ' + (c.notas || '');
+  const encontrados = (texto.match(/\b\d{2}-\d{8}-\d\b/g) || []).map(vinCuijDig);
+  const yaVinc = new Set(vinculos.filter(v => v.causa_id === causaId || v.destino_id === causaId).flatMap(v => [v.causa_id, v.destino_id]));
+  const sug = causas.filter(o => o.id !== causaId && !yaVinc.has(o.id) && vinCuijDig(o.cuij).length >= 11 && encontrados.includes(vinCuijDig(o.cuij)));
+  cont.innerHTML = sug.slice(0, 3).map(o =>
+    `<div class="vin-sug">💡 <span style="flex:1">En los datos de esta causa aparece el CUIJ de <b>${escH(o.caratula || o.imputado || o.cuij)}</b>, que está cargada en el Gestor.</span>
+      <button class="btn-sec" onclick="vinVincularSug('${o.id}')">Vincular como conexa</button></div>`).join('');
+}
+async function vinVincularSug(id) { vinSel = causas.find(c => c.id === id); document.getElementById('vin-tipo').value = 'Conexa'; await guardarVinculo(true); }
+
+function toggleVinForm(abrir) {
+  const f = document.getElementById('vin-form');
+  const open = abrir === undefined ? !f.classList.contains('open') : abrir;
+  if (open && !causaId) { toast('Guardá la causa primero.', 'err'); return; }
+  f.classList.toggle('open', open);
+  vinSel = null;
+  const q = document.getElementById('vin-q'), t = document.getElementById('vin-texto');
+  q.value = ''; t.value = ''; q.style.display = ''; t.style.display = 'none';
+  document.getElementById('vin-lbl').textContent = 'Buscar en el Gestor (apellido, carátula o CUIJ)';
+  document.getElementById('vin-res').style.display = 'none';
+  document.getElementById('vin-tipo').selectedIndex = 0;
+  if (open) q.focus();
+}
+
+function vinBuscar() {
+  const q = document.getElementById('vin-q').value.trim().toLowerCase();
+  const res = document.getElementById('vin-res');
+  vinSel = null;
+  if (q.length < 2) { res.style.display = 'none'; return; }
+  const qd = vinCuijDig(q);
+  const hits = causas.filter(c => c.id !== causaId && (
+      [c.caratula, c.imputado, c.cliente, c.cuij].join(' ').toLowerCase().includes(q) ||
+      (qd.length >= 4 && vinCuijDig(c.cuij).includes(qd)))).slice(0, 8);
+  res.innerHTML = hits.map(c => `<div onclick="vinElegir('${c.id}')">${escH(c.caratula || c.imputado || '—')} <span style="color:var(--gris3);font-family:var(--mono);font-size:11px">${escH(c.cuij || '')}</span></div>`).join('')
+    + `<div class="manual" onclick="vinManual()">No está cargada: escribirla a mano</div>`;
+  res.style.display = 'block';
+}
+function vinElegir(id) {
+  vinSel = causas.find(c => c.id === id);
+  document.getElementById('vin-q').value = (vinSel.caratula || vinSel.imputado || '') + (vinSel.cuij ? ' · ' + vinSel.cuij : '');
+  document.getElementById('vin-res').style.display = 'none';
+}
+function vinManual() {
+  vinSel = 'manual';
+  const q = document.getElementById('vin-q'), t = document.getElementById('vin-texto');
+  t.value = q.value; q.style.display = 'none'; t.style.display = '';
+  document.getElementById('vin-res').style.display = 'none';
+  document.getElementById('vin-lbl').textContent = 'Descripción de la causa (no está en el Gestor)';
+  t.focus();
+}
+
+async function guardarVinculo(desdeSug) {
+  if (!causaId) { toast('Guardá la causa primero.', 'err'); return; }
+  const tipo = document.getElementById('vin-tipo').value;
+  const nuevo = { id: uid(), causa_id: causaId, tipo, created_at: new Date().toISOString() };
+  if (vinSel === 'manual') {
+    nuevo.texto = document.getElementById('vin-texto').value.trim();
+    if (!nuevo.texto) { toast('Escribí qué causa es.', 'err'); return; }
+  } else if (vinSel && vinSel.id) {
+    if (vinculos.some(v => (v.causa_id === causaId && v.destino_id === vinSel.id) || (v.causa_id === vinSel.id && v.destino_id === causaId))) {
+      toast('Esas causas ya están vinculadas.', 'err'); return;
+    }
+    nuevo.destino_id = vinSel.id;
+  } else { toast('Elegí una causa de la lista, o "No está cargada".', 'err'); return; }
+  const { error } = await db.from('vinculos').insert(nuevo);
+  if (error) { toast('Error: ' + error.message, 'err'); return; }
+  vinculos.push(nuevo);
+  toggleVinForm(false);
+  renderVinculos();
+  renderTabla();
+  toast('Vinculada ✓', 'ok');
+}
+
+async function eliminarVinculo(id) {
+  const v = vinculos.find(x => x.id === id);
+  if (!v || !confirm('¿Quitar este vínculo? Las causas no se borran, solo dejan de estar vinculadas.')) return;
+  const { error } = await db.from('vinculos').delete().eq('id', id);
+  if (error) { toast('Error: ' + error.message, 'err'); return; }
+  vinculos = vinculos.filter(x => x.id !== id);
+  renderVinculos();
+  renderTabla();
+  toast('Vínculo quitado', 'ok');
 }
 
 // ── AGENDA GENERAL DEL ESTUDIO ───────────────────────────────────────────
