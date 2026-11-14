@@ -1,6 +1,16 @@
 // Lee el texto de un documento judicial y devuelve los datos de la causa
 // para precargar "Nueva causa" en el Gestor y armar la carátula.
 import Anthropic from "npm:@anthropic-ai/sdk";
+import { createClient } from "npm:@supabase/supabase-js@2";
+
+// Solo responde a usuarios con sesión iniciada en el Gestor (la clave pública sola no alcanza)
+const supa = createClient(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_ANON_KEY") ?? "");
+async function usuarioLogueado(req: Request) {
+  const token = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");
+  if (!token) return null;
+  const { data, error } = await supa.auth.getUser(token);
+  return error ? null : data.user;
+}
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -66,6 +76,9 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
 
   try {
+    if (!(await usuarioLogueado(req))) {
+      return responder({ error: "Tu sesión venció. Volvé a iniciar sesión en el Gestor." }, 401);
+    }
     const { texto, estados = [], unidades = [] } = await req.json();
     if (!texto || String(texto).trim().length < 50) {
       return responder({ error: "El documento no tiene texto legible. Si es escaneado, pasalo antes por la carpeta OCR." }, 400);
