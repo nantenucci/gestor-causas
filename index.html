@@ -287,7 +287,28 @@ th:nth-child(10),td:nth-child(10){ max-width:140px; } /* TRIBUNAL */
 .aud-nueva input:focus { border-color: var(--azul2); }
 .btn-add-aud { background: var(--azul); color: #fff; border: none; border-radius: 4px; padding: 6px 10px; font-size: 12px; cursor: pointer; white-space: nowrap; }
 .btn-add-aud:hover { background: var(--azul2); }
-.aud-nueva:has(.btn-plazo) { grid-template-columns: 140px 1fr auto auto; }
+.aud-nueva:has(.btn-plazo) { grid-template-columns: 140px 112px 1fr auto auto; }
+.aud-nueva select { border: 1px solid var(--borde); border-radius: 4px; padding: 6px 6px; font-family: var(--sans); font-size: 11px; background: #fff; }
+.aud-clase { display: inline-block; font-size: 9px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; padding: 1px 5px; border-radius: 3px; margin-right: 5px; vertical-align: 1px; background: var(--gris2); color: var(--negro); }
+.aud-clase.Tarea { background: var(--gris2); }
+.aud-clase.Visita { background: var(--verde-l); color: var(--verde); }
+.aud-clase.Cautelar { background: var(--azul-l); color: var(--azul); }
+.aud-clase.Preventiva { background: var(--rojo-l); color: var(--rojo); }
+.aud-clase.Audiencia { background: var(--viol-l); color: var(--viol); }
+.aud-auto { font-size: 10px; color: var(--gris3); margin-left: 4px; }
+.det-box { border: 1px solid var(--borde); border-radius: 6px; padding: 10px 12px; background: var(--gris); }
+.det-head { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--negro); margin-bottom: 8px; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.det-head small { font-weight: 400; text-transform: none; letter-spacing: 0; color: var(--gris3); font-size: 11px; }
+.det-grid { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 8px; align-items: end; }
+.det-grid label { display: block; font-size: 10px; color: var(--gris3); margin-bottom: 2px; }
+.det-grid input, .det-grid select { width: 100%; font-family: var(--sans); font-size: 12px; padding: 6px 8px; border: 1px solid var(--borde); border-radius: 4px; background: #fff; }
+.det-prev { margin-top: 8px; font-size: 11px; line-height: 1.6; }
+.det-prev .r { display: grid; grid-template-columns: 78px minmax(0,1fr); gap: 8px; }
+.det-prev .f { font-family: var(--mono); }
+.ag-sinf { margin-top: 18px; font-size: 12px; }
+.ag-sinf summary { cursor: pointer; color: var(--amar); font-weight: 600; }
+.ag-sinf div { padding: 4px 8px; cursor: pointer; color: var(--azul2); }
+.ag-sinf div:hover { background: var(--gris); }
 .btn-plazo { background: #fff; color: var(--azul2); border: 1px solid var(--azul2); border-radius: 4px; padding: 6px 10px; font-size: 12px; cursor: pointer; white-space: nowrap; }
 .btn-plazo:hover, .btn-plazo.on { background: var(--azul-l); }
 .plz { margin-top: 8px; border: 1px solid var(--azul2); border-radius: 6px; background: var(--azul-l); padding: 10px 12px; }
@@ -643,6 +664,19 @@ tbody tr:hover .nota-btn { opacity: 1; }
           </div>
           <div class="pf aloj-extra"><label>Módulo</label><input id="f-modulo" placeholder="Ej: Módulo 2"></div>
           <div class="pf aloj-extra"><label>Pabellón</label><input id="f-pabellon" placeholder="Ej: Pabellón 4"></div>
+          <div class="pf full aloj-extra">
+            <div class="det-box">
+              <div class="det-head">Control del detenido <small id="det-nota"></small></div>
+              <div class="det-grid">
+                <div><label>Detenido desde</label><input type="date" id="det-detencion" onchange="detPreview()"></div>
+                <div><label>Preventiva dictada</label><input type="date" id="det-preventiva" onchange="detPreview()"></div>
+                <div><label title="Última audiencia en que se trataron las medidas cautelares">Últ. audiencia cautelar</label><input type="date" id="det-ultaud" onchange="detPreview()"></div>
+                <div><label>Visitarlo cada</label><select id="det-visita" onchange="detPreview()">
+                  <option value="0">No agendar visitas</option><option value="2">2 semanas</option><option value="4">4 semanas</option><option value="6">6 semanas</option><option value="8">8 semanas</option></select></div>
+              </div>
+              <div class="det-prev" id="det-prev"></div>
+            </div>
+          </div>
           <div class="pf full"><label>Codefensor/a</label><input id="f-codefensor" placeholder="Ej: Dra. Natalia Rubio Molina"></div>
         </div>
       </div>
@@ -674,6 +708,7 @@ tbody tr:hover .nota-btn { opacity: 1; }
         <div class="aud-list" id="aud-list"><div style="font-size:11px;color:var(--gris3)">Sin eventos cargados.</div></div>
         <div class="aud-nueva">
           <input type="date" id="aud-nueva-fecha" placeholder="Fecha">
+          <select id="aud-nueva-clase" title="Tipo de renglón"><option>Audiencia</option><option>Vencimiento</option><option>Tarea</option><option>Visita</option><option>Cautelar</option></select>
           <input type="text" id="aud-nueva-tipo" placeholder="Audiencia, vencimiento, gestión...">
           <button class="btn-add-aud" onclick="agregarAudiencia()">+ Agregar</button>
           <button class="btn-plazo" id="btn-plazo" onclick="togglePlazo()">⏱ Calcular plazo</button>
@@ -763,7 +798,10 @@ tbody tr:hover .nota-btn { opacity: 1; }
       <select id="ag-filtro" onchange="renderAgendaGral()">
         <option value="todo">Todo</option>
         <option value="vence">Solo vencimientos</option>
-        <option value="otros">Audiencias y demás</option>
+        <option value="Audiencia">Solo audiencias</option>
+        <option value="Tarea">Solo tareas</option>
+        <option value="Visita">Solo visitas</option>
+        <option value="cautelar">Cautelares y preventiva</option>
       </select>
       <label style="font-size:11px;display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" id="ag-hechos" onchange="renderAgendaGral()"> Ver tildados</label>
     </div>
@@ -930,6 +968,7 @@ function setRolFicha(rol) {
 function mostrarAlojamiento() {
   const det = document.getElementById('f-privado').value === 'SÍ';
   document.querySelectorAll('.aloj-extra').forEach(el => el.style.display = det ? '' : 'none');
+  if (det && typeof detPreview === 'function') detPreview();
 }
 
 // "UP N°11 — Complejo Penitenciario Piñero" → "U11"; "CPF I — Ezeiza" → "CPF I"
@@ -1165,6 +1204,7 @@ function abrirCausa(id) {
   cargarRadicaciones(id);
   toggleVinForm(false);
   renderVinculos();
+  detCargar();
 }
 
 function nuevaCausa() {
@@ -1183,6 +1223,7 @@ function nuevaCausa() {
   toggleRadForm(false);
   radicaciones = []; renderRadicaciones();
   toggleVinForm(false); renderVinculos();
+  detCargar();
   setRolFicha('Defensa');
   mostrarAlojamiento();
 }
@@ -1215,6 +1256,7 @@ async function guardarCausa() {
     caratula_datos: caratulaDatos,
     updated_at:    new Date().toISOString(),
   };
+  detVolcar();   // mismo objeto que datos.caratula_datos
 
   btn.disabled = true; btn.textContent = 'Guardando...';
 
@@ -1231,6 +1273,8 @@ async function guardarCausa() {
       if (error) throw error;
       causas.unshift(datos);
     }
+    try { await detSincronizar(causaId || datos.id, datos); }
+    catch (e) { toast('La causa se guardó, pero no se pudieron agendar los recordatorios: ' + e.message, 'err'); }
     document.getElementById('overlay').classList.remove('open');
     renderTabla();
     toast('Causa guardada ✓', 'ok');
@@ -1743,6 +1787,143 @@ async function eliminarVinculo(id) {
   toast('Vínculo quitado', 'ok');
 }
 
+// ── TIPO DE RENGLÓN ──────────────────────────────────────────────────────
+function audClase(a) { return a.clase || (/^VENCE:\s*/.test(a.tipo || '') ? 'Vencimiento' : 'Audiencia'); }
+function audClaseTag(a) {
+  if (!a.clase || a.clase === 'Vencimiento') return '';   // VENCE ya tiene su etiqueta; los viejos no muestran nada
+  return `<span class="aud-clase ${escH(a.clase)}">${escH(a.clase)}</span>`;
+}
+
+// ── CONTROL DEL DETENIDO (recordatorios automáticos) ─────────────────────
+// Verificado en el texto oficial del CPPSF (Ley 12.734 actualizada):
+//  art. 225 (Ley 13.746): si se alega solo el tiempo en prisión, deben mediar no menos de 90 días entre audiencias.
+//  art. 227 b (Ley 14.392): cesa la preventiva si excede 2 años; el MPA puede pedir antes una prórroga excepcional de hasta 1 año;
+//  con condena recurrida no hay término máximo. No dice si se cuenta desde la detención o desde el dictado: se agenda la fecha más temprana.
+function detAISO(s) {
+  if (!s) return '';
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  const m = String(s).match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  return m ? `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}` : '';
+}
+function detADMY(iso) { return iso ? iso.split('-').reverse().join('/') : ''; }
+function detMasAnios(iso, n) { const [y, m, d] = iso.split('-').map(Number); return plzISO(new Date(y + n, m - 1, d)); }
+function detMasDias(iso, n) { return plzISO(plzSuma(new Date(iso + 'T00:00:00'), n)); }
+
+function detCargar() {
+  const cd = caratulaDatos || {};
+  document.getElementById('det-detencion').value = detAISO(cd.fecha_detencion);
+  document.getElementById('det-preventiva').value = detAISO(cd.fecha_preventiva);
+  document.getElementById('det-ultaud').value = detAISO(cd.ult_aud_cautelar);
+  document.getElementById('det-visita').value = String(cd.visita_semanas || 0);
+  if (plzFeriadosTabla === null) plzCargarFeriados().then(detPreview); else detPreview();
+}
+
+// Pasa los datos del bloque a caratulaDatos (se guardan con la causa)
+function detVolcar() {
+  const det = document.getElementById('det-detencion').value;
+  if (det) caratulaDatos.fecha_detencion = detADMY(det);          // mismo formato que usa la carátula en Word
+  else if (detAISO(caratulaDatos.fecha_detencion)) delete caratulaDatos.fecha_detencion;
+  const set = (k, v) => { if (v) caratulaDatos[k] = v; else delete caratulaDatos[k]; };
+  set('fecha_preventiva', document.getElementById('det-preventiva').value);
+  set('ult_aud_cautelar', document.getElementById('det-ultaud').value);
+  set('visita_semanas', Number(document.getElementById('det-visita').value) || 0);
+}
+
+// Qué recordatorios corresponden según los datos de la causa
+function detCalcular(c) {
+  const cd = c.caratula_datos || {};
+  if (c.privado !== 'SÍ' || c.codigo !== 'CPPSF') return [];
+  const out = [];
+  const det = detAISO(cd.fecha_detencion), prev = detAISO(cd.fecha_preventiva);
+  const ult = detAISO(cd.ult_aud_cautelar) || prev;
+  if (ult) {
+    const corr = detMasDias(ult, 90);
+    const hab = plzISO(plzComputar(ult, 90, false, 'CPPSF').venc);
+    out.push({ auto: 'cautelar90', clase: 'Cautelar', fecha: corr,
+      tipo: `Ya se puede pedir nueva audiencia de cautelares por el tiempo en prisión · art. 225 CPPSF · 90 días corridos desde la audiencia del ${fmtFecha(ult)} (contados hábiles: ${fmtFecha(hab)})` });
+  }
+  const bases = [det, prev].filter(Boolean).sort();
+  if (bases.length) {
+    const dos = detMasAnios(bases[0], 2);
+    const detalle = [det && `desde la detención: ${fmtFecha(detMasAnios(det, 2))}`, prev && `desde el dictado: ${fmtFecha(detMasAnios(prev, 2))}`].filter(Boolean).join(' · ');
+    out.push({ auto: 'preventiva_aviso', clase: 'Preventiva', fecha: detMasDias(dos, -30),
+      tipo: `Faltan 30 días para los 2 años de preventiva: preparar pedido de cese · art. 227 b CPPSF · ${detalle}` });
+    out.push({ auto: 'preventiva_venc', clase: 'Preventiva', fecha: dos,
+      tipo: `VENCE: 2 años de prisión preventiva · art. 227 b CPPSF · ${detalle} · salvo prórroga pedida por el MPA (hasta 1 año) o condena recurrida` });
+  }
+  return out;
+}
+
+function detPreview() {
+  const el = document.getElementById('det-prev'), nota = document.getElementById('det-nota');
+  if (!el) return;
+  const cod = document.getElementById('f-codigo').value;
+  const c = { privado: document.getElementById('f-privado').value, codigo: cod, caratula_datos: {
+    fecha_detencion: document.getElementById('det-detencion').value,
+    fecha_preventiva: document.getElementById('det-preventiva').value,
+    ult_aud_cautelar: document.getElementById('det-ultaud').value } };
+  nota.textContent = cod === 'CPPSF' ? '· se agendan solos al guardar (arts. 225 y 227 CPPSF)'
+    : '· cálculo automático solo para CPPSF: en ' + (cod || 'esta causa') + ' agendá los controles a mano (normas sin verificar)';
+  const filas = plzFeriadosTabla === null ? [] : detCalcular(c);
+  const sem = Number(document.getElementById('det-visita').value) || 0;
+  if (sem) filas.push({ fecha: detMasDias(plzISO(new Date()), sem * 7), clase: 'Visita', tipo: `Visitar al detenido (cada ${sem} semanas; al tildarla se agenda la siguiente)` });
+  if (!filas.length) { el.innerHTML = cod === 'CPPSF' ? '<span style="color:var(--gris3)">Cargá la fecha de detención o de la preventiva para que se agenden los controles.</span>' : ''; return; }
+  el.innerHTML = '<div style="color:var(--gris3);margin-bottom:2px">Al guardar se agenda:</div>' + filas.sort((a, b) => a.fecha.localeCompare(b.fecha)).map(f =>
+    `<div class="r"><span class="f">${fmtFecha(f.fecha)}</span><span><span class="aud-clase ${f.clase}">${f.clase}</span>${escH(f.tipo.replace(/^VENCE:\s*/, '').split(' · ')[0])}</span></div>`).join('');
+}
+
+function detTextoVisita(c) {
+  const al = alojamientoCorto(c);
+  const sem = Number((c.caratula_datos || {}).visita_semanas) || 0;
+  return `Visitar al detenido${al ? ' · ' + al : ''} · cada ${sem} semanas`;
+}
+
+async function detVisitaSiguiente(id) {
+  const c = causas.find(x => x.id === id);
+  const sem = c ? Number((c.caratula_datos || {}).visita_semanas) || 0 : 0;
+  if (!c || !sem || c.privado !== 'SÍ') return null;
+  const nueva = { id: uid(), causa_id: id, fecha: detMasDias(plzISO(new Date()), sem * 7), tipo: detTextoVisita(c), hecho: false, clase: 'Visita', auto: 'visita' };
+  const { error } = await db.from('audiencias').insert(nueva);
+  if (error) { toast('No se pudo agendar la próxima visita: ' + error.message, 'err'); return null; }
+  return nueva;
+}
+
+// Crea, mueve o borra los renglones automáticos de una causa. Los ya tildados no se tocan.
+async function detSincronizar(id, datos) {
+  if (plzFeriadosTabla === null) await plzCargarFeriados();
+  const c = { ...(causas.find(x => x.id === id) || {}), ...datos, id };
+  const { data: filas, error } = await db.from('audiencias').select('id,fecha,tipo,hecho,auto,clase').eq('causa_id', id).not('auto', 'is', null);
+  if (error) throw error;
+  const quiero = detCalcular(c);
+  for (const key of ['cautelar90', 'preventiva_aviso', 'preventiva_venc']) {
+    const q = quiero.find(x => x.auto === key);
+    const pend = filas.filter(f => f.auto === key && !f.hecho);
+    const yaHecho = q && filas.some(f => f.auto === key && f.hecho && f.fecha === q.fecha);
+    const sobran = (!q || yaHecho) ? pend : pend.slice(1);
+    for (const f of sobran) await db.from('audiencias').delete().eq('id', f.id);
+    if (!q || yaHecho) continue;
+    if (pend[0]) {
+      if (pend[0].fecha !== q.fecha || pend[0].tipo !== q.tipo)
+        await db.from('audiencias').update({ fecha: q.fecha, tipo: q.tipo, clase: q.clase }).eq('id', pend[0].id);
+    } else {
+      await db.from('audiencias').insert({ id: uid(), causa_id: id, fecha: q.fecha, tipo: q.tipo, hecho: false, clase: q.clase, auto: key });
+    }
+  }
+  const sem = Number((c.caratula_datos || {}).visita_semanas) || 0;
+  const visPend = filas.filter(f => f.auto === 'visita' && !f.hecho);
+  if (!sem || c.privado !== 'SÍ') {
+    for (const f of visPend) await db.from('audiencias').delete().eq('id', f.id);
+  } else if (!visPend.length) {
+    await db.from('audiencias').insert({ id: uid(), causa_id: id, fecha: detMasDias(plzISO(new Date()), sem * 7), tipo: detTextoVisita(c), hecho: false, clase: 'Visita', auto: 'visita' });
+  }
+  // Mantener al día la "próxima audiencia" de la causa
+  const { data: pr } = await db.from('audiencias').select('fecha,tipo').eq('causa_id', id).eq('hecho', false).order('fecha').limit(1);
+  const prox = pr && pr[0];
+  await db.from('causas').update({ prox_audiencia: prox ? prox.fecha : null, tipo: prox ? prox.tipo : '' }).eq('id', id);
+  const idx = causas.findIndex(x => x.id === id);
+  if (idx >= 0) { causas[idx].prox_audiencia = prox ? prox.fecha : null; causas[idx].tipo = prox ? prox.tipo : ''; }
+}
+
 // ── AGENDA GENERAL DEL ESTUDIO ───────────────────────────────────────────
 let agFilas = [], agAtrasados = [], agVistaAct = 'semana', agBase = null;
 const AG_DIAS = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
@@ -1788,8 +1969,8 @@ async function cargarAgendaGral() {
   const hoy = agHoyISO();
   const hace30 = new Date(); hace30.setDate(hace30.getDate() - 30);
   const [enRango, atr] = await Promise.all([
-    db.from('audiencias').select('id,causa_id,fecha,tipo,hecho,notas').gte('fecha', agISO(r.ini)).lte('fecha', agISO(r.fin)).order('fecha'),
-    db.from('audiencias').select('id,causa_id,fecha,tipo,hecho,notas').eq('hecho', false).gte('fecha', agISO(hace30)).lt('fecha', hoy).order('fecha'),
+    db.from('audiencias').select('id,causa_id,fecha,tipo,hecho,notas,clase,auto').gte('fecha', agISO(r.ini)).lte('fecha', agISO(r.fin)).order('fecha'),
+    db.from('audiencias').select('id,causa_id,fecha,tipo,hecho,notas,clase,auto').eq('hecho', false).gte('fecha', agISO(hace30)).lt('fecha', hoy).order('fecha'),
   ]);
   if (enRango.error || atr.error) {
     document.getElementById('ag-body').innerHTML = `<div class="ag-vacio">No se pudo cargar la agenda: ${escH((enRango.error || atr.error).message)}</div>`;
@@ -1814,7 +1995,7 @@ function agFilaHTML(a, conFecha) {
     <input type="checkbox" class="aud-check" ${a.hecho ? 'checked' : ''} onchange="agToggle('${a.id}', this.checked, this)" title="Marcar como hecho">
     <span class="aud-dot ${cls}"></span>
     ${conFecha ? `<span class="ag-f aud-fecha ${cls}">${fmtFecha(a.fecha).slice(0, 5)}</span>` : ''}
-    <span class="ag-t">${vence ? '<span class="aud-vence">VENCE</span>' : ''}${linkificar(escH(txt))}${res}</span>
+    <span class="ag-t">${audClaseTag(a)}${vence ? '<span class="aud-vence">VENCE</span>' : ''}${linkificar(escH(txt))}${res}</span>
     ${c ? `<span class="ag-c" onclick="cerrarAgendaGral();abrirCausa('${c.id}')" title="${escH(c.caratula || '')}">${escH(nombre)}</span>` : `<span class="ag-c" style="color:var(--gris3);cursor:default">${escH(nombre)}</span>`}
   </div>`;
 }
@@ -1822,7 +2003,13 @@ function agFilaHTML(a, conFecha) {
 function renderAgendaGral() {
   const filtro = document.getElementById('ag-filtro').value;
   const verHechos = document.getElementById('ag-hechos').checked;
-  const pasa = a => (filtro === 'todo' || (filtro === 'vence') === agEsVence(a));
+  const pasa = a => {
+    const k = audClase(a);
+    if (filtro === 'todo') return true;
+    if (filtro === 'vence') return k === 'Vencimiento' || agEsVence(a);
+    if (filtro === 'cautelar') return k === 'Cautelar' || k === 'Preventiva';
+    return k === filtro;
+  };
   const hoy = agHoyISO();
   const filas = agFilas.filter(a => pasa(a) && (verHechos || !a.hecho));
   const atr = agAtrasados.filter(pasa);
@@ -1839,6 +2026,9 @@ function renderAgendaGral() {
           + porDia[f].map(a => agFilaHTML(a, false)).join('');
   });
   if (!filas.length) html += `<div class="ag-vacio">No hay nada agendado ${agVistaAct === 'mes' ? 'este mes' : 'esta semana'}${filtro !== 'todo' ? ' con ese filtro' : ''}.</div>`;
+  const sinF = causas.filter(c => c.privado === 'SÍ' && !detAISO((c.caratula_datos || {}).fecha_detencion));
+  if (sinF.length) html += `<details class="ag-sinf"><summary>Detenidos sin fecha de detención cargada (${sinF.length}) — sin eso no se agendan los controles</summary>`
+    + sinF.map(c => `<div onclick="cerrarAgendaGral();abrirCausa('${c.id}')">${escH(c.imputado || c.caratula || c.cuij)} <span style="color:var(--gris3)">· ${escH(c.codigo || '')}</span></div>`).join('') + '</details>';
   document.getElementById('ag-body').innerHTML = html;
   const pend = filas.filter(a => !a.hecho).length;
   document.getElementById('ag-subtitulo').textContent =
@@ -1858,6 +2048,10 @@ async function agToggle(id, hecho, chk) {
   if (error) { toast('Error: ' + error.message, 'err'); chk.checked = !hecho; return; }
   [agFilas, agAtrasados].forEach(l => l.forEach(x => { if (x.id === id) { x.hecho = hecho; x.notas = notas; } }));
   if (hecho) agAtrasados = agAtrasados.filter(x => x.id !== id);
+  if (hecho && a.auto === 'visita') {
+    const sig = await detVisitaSiguiente(a.causa_id);
+    if (sig) { if (a.causa_id === causaId) { audiencias.push(sig); audiencias.sort((x, y) => x.fecha.localeCompare(y.fecha)); } toast('Próxima visita agendada: ' + fmtFecha(sig.fecha), 'ok'); }
+  }
   // Mantener al día la "próxima audiencia" de esa causa (igual que al tildar dentro de la causa)
   const { data: pend } = await db.from('audiencias').select('fecha,tipo').eq('causa_id', a.causa_id).eq('hecho', false).order('fecha').limit(1);
   const prox = pend && pend[0];
@@ -2051,7 +2245,7 @@ function renderAudiencias() {
     const cls = a.hecho ? '' : niv.nivel === 0 ? 'urg' : niv.nivel === 1 ? 'prox' : 'ok';
     const esVence = !a.pjn && /^VENCE:\s*/.test(a.tipo || '');
     const tipoTxt = esVence ? a.tipo.replace(/^VENCE:\s*/, '') : (a.tipo || 'Sin descripción');
-    const texto = a.pjn ? escH(tipoTxt) : (esVence ? '<span class="aud-vence">VENCE</span>' : '') + linkificar(escH(tipoTxt));
+    const texto = a.pjn ? escH(tipoTxt) : audClaseTag(a) + (esVence ? '<span class="aud-vence">VENCE</span>' : '') + linkificar(escH(tipoTxt)) + (a.auto ? '<span class="aud-auto" title="Lo agenda solo el Control del detenido">· automático</span>' : '');
     const contenido = a.hecho && a.notas ? `${texto} — <span class="aud-res">${escH(a.notas)}</span>` : texto;
     const marca = a.pjn
       ? `<span class="aud-pjn-ico" title="Evento automático del sync PJN">🏛️</span>`
@@ -2076,7 +2270,8 @@ async function agregarAudiencia() {
   const tipo  = document.getElementById('aud-nueva-tipo').value.trim();
   if (!fecha) { toast('Seleccioná una fecha.', 'err'); return; }
   if (!causaId) { toast('Guardá la causa primero.', 'err'); return; }
-  const nueva = { id: uid(), causa_id: causaId, fecha, tipo, hecho: false };
+  const clase = document.getElementById('aud-nueva-clase').value;
+  const nueva = { id: uid(), causa_id: causaId, fecha, tipo, hecho: false, clase };
   const { error } = await db.from('audiencias').insert(nueva);
   if (error) { toast('Error: ' + error.message, 'err'); return; }
   audiencias.push(nueva);
@@ -2107,6 +2302,10 @@ async function toggleHecho(id, hecho) {
   const { error } = await db.from('audiencias').update({ hecho, notas }).eq('id', id);
   if (error) { toast('Error: ' + error.message, 'err'); return; }
   if (a) { a.hecho = hecho; a.notas = notas; }
+  if (hecho && a && a.auto === 'visita') {
+    const sig = await detVisitaSiguiente(causaId);
+    if (sig) { audiencias.push(sig); audiencias.sort((x, y) => x.fecha.localeCompare(y.fecha)); toast('Próxima visita agendada: ' + fmtFecha(sig.fecha), 'ok'); }
+  }
   renderAudiencias();
   actualizarProximoEvento();
 }
@@ -2372,7 +2571,7 @@ function plzCalcular() {
 async function plzAgendar() {
   if (!plzUltimo) { toast('Completá la fecha de notificación.', 'err'); return; }
   if (!causaId) { toast('Guardá la causa primero.', 'err'); return; }
-  const nueva = { id: uid(), causa_id: causaId, fecha: plzUltimo.fecha, tipo: plzUltimo.tipo, hecho: false };
+  const nueva = { id: uid(), causa_id: causaId, fecha: plzUltimo.fecha, tipo: plzUltimo.tipo, hecho: false, clase: 'Vencimiento' };
   const { error } = await db.from('audiencias').insert(nueva);
   if (error) { toast('Error: ' + error.message, 'err'); return; }
   audiencias.push(nueva);
