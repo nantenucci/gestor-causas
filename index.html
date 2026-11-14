@@ -175,6 +175,18 @@ th:nth-child(10),td:nth-child(10){ max-width:140px; } /* TRIBUNAL */
 .al-dias.urg { background: var(--rojo-l); color: var(--rojo); } .al-dias.prox { background: var(--amar-l); color: var(--amar); }
 .al-dias.venc-urg { background: #FDE8FF; color: #86198F; } .al-dias.venc { background: var(--viol-l); color: var(--viol); }
 .ag-modal { width: 760px; }
+.cm-modal { width: 900px; }
+.cm-row { display: grid; grid-template-columns: 24px minmax(0,1.1fr) minmax(0,1.8fr) 100px; gap: 10px; padding: 8px 10px; border-top: 1px solid var(--borde); align-items: start; font-size: 12px; }
+.cm-row.cab { background: var(--gris); font-size: 10px; color: var(--gris3); text-transform: uppercase; letter-spacing: .05em; border-top: none; }
+.cm-nom { font-weight: 600; }
+.cm-sub { font-size: 11px; color: var(--gris3); margin-top: 1px; word-break: break-all; }
+.cm-conf { color: var(--amar); }
+.cm-est { justify-self: start; font-size: 10px; font-weight: 600; padding: 2px 6px; border-radius: 4px; background: var(--gris2); }
+.cm-est.ok { background: var(--verde-l); color: var(--verde); }
+.cm-est.rev { background: var(--amar-l); color: var(--amar); }
+.cm-est.err { background: var(--rojo-l); color: var(--rojo); }
+.doc-res { border: 1px solid var(--azul2); background: var(--azul-l); border-radius: 6px; padding: 8px 12px; font-size: 12px; margin-bottom: 14px; display: none; }
+.doc-res.open { display: block; }
 .vin-list { border: 1px solid var(--borde); border-radius: 5px; overflow: hidden; }
 .vin-item { display: grid; grid-template-columns: 170px minmax(0,1fr) auto; gap: 10px; padding: 7px 10px; border-top: 1px solid var(--borde); align-items: center; font-size: 12px; }
 .vin-item:first-child { border-top: none; }
@@ -398,6 +410,7 @@ tbody tr:hover .nota-btn { opacity: 1; }
       <input type="file" id="imp-input" accept=".json" style="display:none" onchange="importarJSON(event)">
       <button class="tb-btn" id="btn-desde-doc" onclick="document.getElementById('doc-input').click()" title="Subí el decreto, acta o cédula y se completan los datos solos">&#x1F4C4; Desde documento</button>
       <input type="file" id="doc-input" accept=".pdf,.docx,.txt" style="display:none" onchange="causaDesdeDocumento(event)">
+      <button class="tb-btn" onclick="abrirCargaMasiva()" title="Subí varias actas y se completan las causas que ya tenés cargadas">&#x1F4D1; Completar desde actas</button>
       <button class="btn-nueva" onclick="nuevaCausa()">+ Nueva causa</button>
       <button class="tb-btn" onclick="cerrarSesion()" title="Cerrar sesión" style="border-color:rgba(255,255,255,.2)">&#x1F513; Salir</button>
     </div>
@@ -504,6 +517,7 @@ tbody tr:hover .nota-btn { opacity: 1; }
       <button class="btn-x" onclick="cerrarPanel()">×</button>
     </div>
     <div class="panel-body">
+      <div class="doc-res full-col" id="doc-res" style="grid-column:1/-1"></div>
 
       <div class="ps full-col">
         <div class="ps-title">Identificación</div>
@@ -757,6 +771,8 @@ tbody tr:hover .nota-btn { opacity: 1; }
       <button class="btn-guardar" id="btn-guardar" onclick="guardarCausa()">Guardar</button>
       <button class="btn-elim btn-pdf" id="btn-pdf" style="display:none" onclick="generarPDF()">&#x1F4C4; PDF</button>
       <button class="btn-elim btn-pdf" id="btn-caratula" onclick="generarCaratula()" title="Descargar la carátula en Word para imprimir">&#x1F4CB; Carátula</button>
+      <button class="btn-elim btn-pdf" onclick="document.getElementById('doc-completar').click()" title="Subí un acta o decreto de esta causa y se completan los campos vacíos">&#x1F4C4; Completar desde documento</button>
+      <input type="file" id="doc-completar" accept=".pdf,.docx,.txt" style="display:none" onchange="completarDesdeDocumento(event)">
       <button class="btn-elim" id="btn-elim" style="display:none" onclick="eliminarCausa()">Eliminar</button>
     </div>
   </div>
@@ -776,6 +792,28 @@ tbody tr:hover .nota-btn { opacity: 1; }
         <button class="btn-ok" style="background:var(--verde);border:none" onclick="imprimirAlertas()">&#x1F5A8; Imprimir</button>
         <button class="btn-ok" onclick="cerrarAlertas()">Entendido</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- PANEL CARGA MASIVA DESDE ACTAS -->
+<div class="al-overlay" id="cm-overlay" onclick="cerrarCargaMasiva(event)">
+  <div class="al-modal cm-modal" onclick="event.stopPropagation()">
+    <div class="al-header">
+      <div><h2>&#x1F4D1; Completar causas desde actas</h2><p id="cm-sub">Elegí una o varias actas, decretos o cédulas (PDF, Word o .txt). La IA solo propone: no se guarda nada hasta que tocás Aplicar.</p></div>
+      <button class="btn-x" onclick="cerrarCargaMasiva()" style="color:var(--negro)">×</button>
+    </div>
+    <div class="al-body">
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
+        <button class="btn-plazo" onclick="document.getElementById('cm-input').click()">Elegir actas…</button>
+        <input type="file" id="cm-input" multiple accept=".pdf,.docx,.txt" style="display:none" onchange="cmAgregar(event)">
+        <span id="cm-prog" style="font-size:12px;color:var(--gris3)"></span>
+      </div>
+      <div id="cm-tabla"></div>
+    </div>
+    <div class="al-footer">
+      <small>Solo completa campos vacíos. Al aplicar se agendan solos los controles del detenido.</small>
+      <button class="btn-ok" id="cm-aplicar" onclick="cmAplicar()">Aplicar</button>
     </div>
   </div>
 </div>
@@ -1205,6 +1243,7 @@ function abrirCausa(id) {
   toggleVinForm(false);
   renderVinculos();
   detCargar();
+  docResumen(null);
 }
 
 function nuevaCausa() {
@@ -1224,6 +1263,7 @@ function nuevaCausa() {
   radicaciones = []; renderRadicaciones();
   toggleVinForm(false); renderVinculos();
   detCargar();
+  docResumen(null);
   setRolFicha('Defensa');
   mostrarAlojamiento();
 }
@@ -1372,7 +1412,16 @@ async function causaDesdeDocumento(ev) {
       throw new Error(msg);
     }
     trabPaso(3);
+    nuevaCausaDesdeDatos(data, file.name);
+  } catch (err) {
+    toast(err.message, 'err');
+  } finally {
+    trabajando(false);
+  }
+}
 
+function nuevaCausaDesdeDatos(data, nombreArchivo) {
+  {
     nuevaCausa();
     document.getElementById('f-prefijo').value = 'CUIJ';
     elegirOpcion('f-prefijo', data.prefijo);
@@ -1391,7 +1440,7 @@ async function causaDesdeDocumento(ev) {
     document.getElementById('f-modulo').value   = data.modulo || '';
     document.getElementById('f-pabellon').value = data.pabellon || '';
     mostrarAlojamiento();
-    document.getElementById('ph-cuij').textContent = 'Nueva causa — desde ' + file.name;
+    document.getElementById('ph-cuij').textContent = 'Nueva causa — desde ' + nombreArchivo;
     document.getElementById('ph-car').textContent  = data.caratula || '—';
 
     caratulaDatos = {
@@ -1400,11 +1449,10 @@ async function causaDesdeDocumento(ev) {
       fecha_audiencia: data.fecha_audiencia, victima: data.victima, vinculados: data.vinculados || [],
       cliente_dni: data.cliente_dni, cliente_domicilio: data.cliente_domicilio, cliente_telefono: data.cliente_telefono,
     };
+    if (detAISO(data.fecha_preventiva)) caratulaDatos.fecha_preventiva = detAISO(data.fecha_preventiva);
+    if (detAISO(data.fecha_audiencia_cautelar)) caratulaDatos.ult_aud_cautelar = detAISO(data.fecha_audiencia_cautelar);
+    detCargar();
     toast('Datos cargados ✓ Revisalos y tocá Guardar.', 'ok');
-  } catch (err) {
-    toast(err.message, 'err');
-  } finally {
-    trabajando(false);
   }
 }
 
@@ -1924,6 +1972,231 @@ async function detSincronizar(id, datos) {
   if (idx >= 0) { causas[idx].prox_audiencia = prox ? prox.fecha : null; causas[idx].tipo = prox ? prox.tipo : ''; }
 }
 
+// ── COMPLETAR DESDE DOCUMENTOS (una causa o muchas) ──────────────────────
+async function extraerDoc(file) {
+  const texto = await leerTextoDocumento(file);
+  if (texto.replace(/\s/g, '').length < 100) { const e = new Error('Es una imagen escaneada: pasala por la carpeta OCR y subí el .txt'); e.sinTexto = true; throw e; }
+  const { data, error } = await db.functions.invoke('extraer-causa', {
+    body: { texto, estados: opcionesDe('f-estado'), unidades: opcionesDe('f-unidad') },
+  });
+  if (error) { let msg = error.message; try { msg = (await error.context.json()).error || msg; } catch (_) {} throw new Error(msg); }
+  return data;
+}
+
+const DOC_ETIQ = {
+  imputado: 'Imputado', delito: 'Delito', tribunal: 'Tribunal/Fiscal', codigo: 'Código', estado: 'Estado',
+  privado: 'Privado de libertad', unidad: 'Unidad', modulo: 'Módulo', pabellon: 'Pabellón',
+  fecha_detencion: 'Detenido desde', fecha_preventiva: 'Preventiva', ult_aud_cautelar: 'Últ. audiencia cautelar',
+  fiscal: 'Fiscal', juez: 'Juez', legajo: 'Legajo', delito_detalle: 'Delitos (detalle)', fecha_hecho: 'Fecha del hecho',
+  fecha_audiencia: 'Fecha audiencia', victima: 'Víctima', cliente_dni: 'DNI', cliente_domicilio: 'Domicilio',
+  cliente_telefono: 'Teléfono', alojado: 'Alojamiento', vinculados: 'Vinculados',
+};
+const DOC_FECHAS = new Set(['fecha_detencion', 'fecha_preventiva', 'ult_aud_cautelar']);
+function docIgual(a, b) { return norm(String(a || '')).replace(/\W/g, '') === norm(String(b || '')).replace(/\W/g, ''); }
+function docMuestra(k, v) { return DOC_FECHAS.has(k) ? fmtFecha(detAISO(v)) : (Array.isArray(v) ? v.join('; ') : String(v)); }
+
+// Mezcla lo que dice el documento con lo que ya está cargado: solo llena vacíos.
+// m = { imputado, delito, tribunal, codigo, estado, privado, unidad, modulo, pabellon, cd: {...caratula_datos} }
+function docMezclar(m, data) {
+  const llenos = [], conflictos = [];
+  const opc = { codigo: 'f-codigo', estado: 'f-estado', privado: 'f-privado', unidad: 'f-unidad' };
+  const top = {
+    imputado: data.imputado, delito: data.delito, tribunal: [data.fiscal, data.juez].filter(Boolean).join(' / '),
+    codigo: data.codigo, estado: data.estado, privado: data.privado, unidad: data.unidad, modulo: data.modulo, pabellon: data.pabellon,
+  };
+  for (const [k, v] of Object.entries(top)) {
+    if (!v) continue;
+    if (opc[k] && !opcionesDe(opc[k]).includes(v)) continue;
+    if (!m[k]) { m[k] = v; llenos.push([k, v]); }
+    else if (['imputado', 'privado'].includes(k) && !docIgual(m[k], v)) conflictos.push([k, m[k], v]);
+  }
+  const cdNuevo = {
+    fecha_detencion: detAISO(data.fecha_detencion) ? detADMY(detAISO(data.fecha_detencion)) : '',
+    fecha_preventiva: detAISO(data.fecha_preventiva), ult_aud_cautelar: detAISO(data.fecha_audiencia_cautelar),
+    fiscal: data.fiscal, juez: data.juez, legajo: data.legajo, delito_detalle: data.delito_detalle, fecha_hecho: data.fecha_hecho,
+    fecha_audiencia: data.fecha_audiencia, victima: data.victima, alojado: data.alojado,
+    cliente_dni: data.cliente_dni, cliente_domicilio: data.cliente_domicilio, cliente_telefono: data.cliente_telefono,
+  };
+  for (const [k, v] of Object.entries(cdNuevo)) {
+    if (!v) continue;
+    const act = m.cd[k];
+    if (!act) { m.cd[k] = v; llenos.push([k, v]); }
+    else if (['fecha_detencion', 'fecha_preventiva', 'fiscal', 'juez'].includes(k) &&
+             !(DOC_FECHAS.has(k) ? detAISO(act) === detAISO(v) : docIgual(act, v))) conflictos.push([k, act, v]);
+  }
+  if ((!m.cd.vinculados || !m.cd.vinculados.length) && data.vinculados && data.vinculados.length) { m.cd.vinculados = data.vinculados; llenos.push(['vinculados', data.vinculados]); }
+  return { m, llenos, conflictos };
+}
+
+function docResumenHTML(llenos, conflictos) {
+  const l = llenos.length ? llenos.map(([k, v]) => `<b>${DOC_ETIQ[k] || k}:</b> ${escH(docMuestra(k, v))}`).join(' · ') : 'Nada nuevo: los campos que trae ya estaban cargados.';
+  const c = conflictos.map(([k, a, n]) => `<div class="cm-conf">${DOC_ETIQ[k] || k}: está cargado "${escH(docMuestra(k, a))}", el documento dice "${escH(docMuestra(k, n))}" (no se cambió)</div>`).join('');
+  return `<div>${l}</div>${c}`;
+}
+function docResumen(html) {
+  const el = document.getElementById('doc-res');
+  if (!el) return;
+  el.innerHTML = html || '';
+  el.classList.toggle('open', !!html);
+}
+
+// Una sola causa: completa la ficha abierta (hay que tocar Guardar)
+async function completarDesdeDocumento(ev) {
+  const file = ev.target.files[0];
+  ev.target.value = '';
+  if (!file) return;
+  trabajando(true, file.name);
+  try {
+    const data = await extraerDoc(file);
+    trabPaso(3);
+    const v = id => document.getElementById(id).value.trim();
+    const m = { imputado: v('f-imputado'), delito: v('f-delito'), tribunal: v('f-tribunal'), codigo: v('f-codigo'), estado: v('f-estado'),
+      privado: v('f-privado'), unidad: v('f-unidad'), modulo: v('f-modulo'), pabellon: v('f-pabellon'), cd: { ...caratulaDatos } };
+    if (v('det-detencion')) m.cd.fecha_detencion = detADMY(v('det-detencion'));
+    if (v('det-preventiva')) m.cd.fecha_preventiva = v('det-preventiva');
+    if (v('det-ultaud')) m.cd.ult_aud_cautelar = v('det-ultaud');
+    const r = docMezclar(m, data);
+    ['imputado', 'delito', 'tribunal', 'modulo', 'pabellon'].forEach(k => document.getElementById('f-' + k).value = m[k] || '');
+    ['codigo', 'estado', 'privado', 'unidad'].forEach(k => elegirOpcion('f-' + k, m[k]));
+    caratulaDatos = m.cd;
+    detCargar();
+    mostrarAlojamiento();
+    docResumen(`<div style="margin-bottom:3px">&#x1F4C4; <b>Desde ${escH(file.name)}</b> — revisá y tocá <b>Guardar</b>:</div>` + docResumenHTML(r.llenos, r.conflictos));
+    document.getElementById('doc-res').scrollIntoView({ block: 'nearest' });
+  } catch (err) {
+    toast(err.message, 'err');
+  } finally {
+    trabajando(false);
+  }
+}
+
+// Muchas causas a la vez
+let cmItems = [];
+function abrirCargaMasiva() {
+  cmItems = [];
+  cmRender();
+  document.getElementById('cm-overlay').classList.add('open');
+}
+function cerrarCargaMasiva(e) {
+  if (cmItems.some(i => i.estado === 'leyendo' || i.estado === 'espera') && !confirm('Todavía hay actas leyéndose. ¿Cerrar igual?')) return;
+  cerrarModal('cm-overlay', e);
+}
+
+function cmBuscarCausa(data) {
+  const dig = vinCuijDig(data.numero);
+  if (dig.length >= 6) {
+    const porNum = causas.filter(c => vinCuijDig(c.cuij) === dig);
+    if (porNum.length === 1) return { causa: porNum[0], como: 'cuij' };
+  }
+  const imp = norm(String(data.imputado || '')).split(',')[0].trim();
+  const nombre = norm(String(data.imputado || '')).split(',')[1]?.trim().split(/\s+/)[0] || '';
+  if (imp.length >= 3) {
+    const porNom = causas.filter(c => {
+      const t = norm(`${c.imputado || ''} ${c.caratula || ''}`);
+      return t.includes(imp) && (!nombre || t.includes(nombre));
+    });
+    if (porNom.length === 1) return { causa: porNom[0], como: 'nombre' };
+  }
+  return { causa: null, como: null };
+}
+
+function cmModelo(c) {
+  return { imputado: c.imputado || '', delito: c.delito || '', tribunal: c.tribunal || '', codigo: c.codigo || '', estado: c.estado || '',
+    privado: c.privado || '', unidad: c.unidad || '', modulo: c.modulo || '', pabellon: c.pabellon || '',
+    cd: JSON.parse(JSON.stringify(c.caratula_datos || {})) };
+}
+
+async function cmAgregar(ev) {
+  const files = [...ev.target.files];
+  ev.target.value = '';
+  files.forEach(f => cmItems.push({ id: uid(), file: f, estado: 'espera' }));
+  cmRender();
+  const cola = cmItems.filter(i => i.estado === 'espera');
+  const trabajar = async () => {
+    for (let it = cola.shift(); it; it = cola.shift()) {
+      it.estado = 'leyendo'; cmRender();
+      try {
+        it.data = await extraerDoc(it.file);
+        const { causa, como } = cmBuscarCausa(it.data);
+        it.causa = causa; it.como = como;
+        if (causa) {
+          const r = docMezclar(cmModelo(causa), it.data);
+          it.prop = r; it.sel = como === 'cuij' && r.llenos.length > 0;
+        }
+        it.estado = 'listo';
+      } catch (err) {
+        it.estado = err.sinTexto ? 'sintexto' : 'error'; it.error = err.message;
+      }
+      cmRender();
+    }
+  };
+  await Promise.all([trabajar(), trabajar(), trabajar()]);   // 3 actas a la vez
+}
+
+function cmRender() {
+  const pend = cmItems.filter(i => i.estado === 'espera' || i.estado === 'leyendo').length;
+  const listos = cmItems.length - pend;
+  document.getElementById('cm-prog').textContent = cmItems.length ? `Leídas ${listos} de ${cmItems.length}` + (pend ? ' — cada acta tarda entre 15 y 60 segundos' : '') : '';
+  const sel = cmItems.filter(i => i.sel).length;
+  const btn = document.getElementById('cm-aplicar');
+  btn.textContent = sel ? `Aplicar ${sel} seleccionada${sel !== 1 ? 's' : ''}` : 'Aplicar';
+  if (!cmItems.length) { document.getElementById('cm-tabla').innerHTML = '<div class="ag-vacio">Todavía no elegiste actas.</div>'; return; }
+  document.getElementById('cm-tabla').innerHTML = `<div style="border:1px solid var(--borde);border-radius:5px;overflow:hidden">
+    <div class="cm-row cab"><span></span><span>Acta → causa</span><span>Qué completa</span><span>Estado</span></div>` +
+    cmItems.map(i => {
+      let nom = escH(i.file.name), sub = '', que = '', est = '';
+      if (i.estado === 'espera') { est = '<span class="cm-est">En espera</span>'; }
+      else if (i.estado === 'leyendo') { est = '<span class="cm-est">Leyendo…</span>'; }
+      else if (i.estado === 'sintexto') { que = escH(i.error); est = '<span class="cm-est err">Sin texto</span>'; }
+      else if (i.estado === 'error') { que = escH(i.error); est = '<span class="cm-est err">Error</span>'; }
+      else if (i.estado === 'aplicado') { nom = escH(i.causa.imputado || i.causa.caratula); sub = escH(i.file.name); que = 'Guardado ✓'; est = '<span class="cm-est ok">Aplicado</span>'; }
+      else if (!i.causa) {
+        nom = escH(i.data.imputado || i.file.name); sub = `${escH(i.file.name)} · ${escH(i.data.numero || 'sin número')}`;
+        que = `No está en el Gestor. <a href="#" onclick="event.preventDefault();cmCrear('${i.id}')">Crear causa con estos datos</a>`;
+        est = '<span class="cm-est">Nueva</span>';
+      } else {
+        nom = (i.como === 'nombre' ? '¿' : '') + escH(i.causa.imputado || i.causa.caratula) + (i.como === 'nombre' ? '?' : '');
+        sub = `${escH(i.file.name)} · ${escH(i.causa.cuij || '')}`;
+        que = docResumenHTML(i.prop.llenos, i.prop.conflictos);
+        est = i.como === 'cuij' ? '<span class="cm-est ok">Coincide CUIJ</span>' : '<span class="cm-est rev">Revisar: por nombre</span>';
+      }
+      const puede = i.estado === 'listo' && i.causa && i.prop && i.prop.llenos.length;
+      return `<div class="cm-row"><input type="checkbox" ${i.sel ? 'checked' : ''} ${puede ? '' : 'disabled'} onchange="cmSel('${i.id}', this.checked)" style="margin-top:2px">
+        <div><div class="cm-nom">${nom}</div>${sub ? `<div class="cm-sub">${sub}</div>` : ''}</div><div>${que}</div>${est}</div>`;
+    }).join('') + '</div>';
+}
+function cmSel(id, v) { const i = cmItems.find(x => x.id === id); if (i) i.sel = v; cmRender(); }
+function cmCrear(id) {
+  const i = cmItems.find(x => x.id === id);
+  if (!i) return;
+  document.getElementById('cm-overlay').classList.remove('open');
+  nuevaCausaDesdeDatos(i.data, i.file.name);
+}
+
+async function cmAplicar() {
+  const sel = cmItems.filter(i => i.sel && i.estado === 'listo');
+  if (!sel.length) { toast('Tildá las actas que querés aplicar.', 'err'); return; }
+  const btn = document.getElementById('cm-aplicar');
+  btn.disabled = true;
+  let ok = 0;
+  for (const i of sel) {
+    // recalcular contra lo último guardado, por si la causa cambió mientras se leían las actas
+    const c = causas.find(x => x.id === i.causa.id);
+    const { m } = docMezclar(cmModelo(c), i.data);
+    const datos = { imputado: m.imputado, delito: m.delito, tribunal: m.tribunal, codigo: m.codigo, estado: m.estado, privado: m.privado,
+      unidad: m.unidad, modulo: m.modulo, pabellon: m.pabellon, caratula_datos: m.cd, updated_at: new Date().toISOString() };
+    const { error } = await db.from('causas').update(datos).eq('id', c.id);
+    if (error) { i.estado = 'error'; i.error = error.message; i.sel = false; cmRender(); continue; }
+    Object.assign(c, datos);
+    try { await detSincronizar(c.id, datos); } catch (e) { toast('No se pudieron agendar los controles de ' + (c.imputado || c.cuij) + ': ' + e.message, 'err'); }
+    i.estado = 'aplicado'; i.sel = false; ok++;
+    cmRender();
+  }
+  btn.disabled = false;
+  renderTabla();
+  toast(`${ok} causa${ok !== 1 ? 's' : ''} completada${ok !== 1 ? 's' : ''} ✓`, 'ok');
+}
+
 // ── AGENDA GENERAL DEL ESTUDIO ───────────────────────────────────────────
 let agFilas = [], agAtrasados = [], agVistaAct = 'semana', agBase = null;
 const AG_DIAS = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
@@ -2028,6 +2301,7 @@ function renderAgendaGral() {
   if (!filas.length) html += `<div class="ag-vacio">No hay nada agendado ${agVistaAct === 'mes' ? 'este mes' : 'esta semana'}${filtro !== 'todo' ? ' con ese filtro' : ''}.</div>`;
   const sinF = causas.filter(c => c.privado === 'SÍ' && !detAISO((c.caratula_datos || {}).fecha_detencion));
   if (sinF.length) html += `<details class="ag-sinf"><summary>Detenidos sin fecha de detención cargada (${sinF.length}) — sin eso no se agendan los controles</summary>`
+    + `<p style="margin:6px 8px;color:var(--gris3)">Lo más rápido: <a href="#" onclick="event.preventDefault();cerrarAgendaGral();abrirCargaMasiva()">subir las actas imputativas juntas</a> y se completan solas.</p>`
     + sinF.map(c => `<div onclick="cerrarAgendaGral();abrirCausa('${c.id}')">${escH(c.imputado || c.caratula || c.cuij)} <span style="color:var(--gris3)">· ${escH(c.codigo || '')}</span></div>`).join('') + '</details>';
   document.getElementById('ag-body').innerHTML = html;
   const pend = filas.filter(a => !a.hecho).length;
