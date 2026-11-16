@@ -307,6 +307,7 @@ th:nth-child(10),td:nth-child(10){ max-width:140px; } /* TRIBUNAL */
 .aud-clase.Cautelar { background: var(--azul-l); color: var(--azul); }
 .aud-clase.Preventiva { background: var(--rojo-l); color: var(--rojo); }
 .aud-clase.Audiencia { background: var(--viol-l); color: var(--viol); }
+.aud-clase.Notificación { background: var(--amar-l); color: var(--amar); }
 .aud-auto { font-size: 10px; color: var(--gris3); margin-left: 4px; }
 .det-box { border: 1px solid var(--borde); border-radius: 6px; padding: 10px 12px; background: var(--gris); }
 .det-head { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--negro); margin-bottom: 8px; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
@@ -840,6 +841,7 @@ tbody tr:hover .nota-btn { opacity: 1; }
         <option value="Tarea">Solo tareas</option>
         <option value="Visita">Solo visitas</option>
         <option value="cautelar">Cautelares y preventiva</option>
+        <option value="Notificación">Notificaciones del casillero</option>
       </select>
       <label style="font-size:11px;display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" id="ag-hechos" onchange="renderAgendaGral()"> Ver tildados</label>
     </div>
@@ -2519,7 +2521,8 @@ function renderAudiencias() {
     const cls = a.hecho ? '' : niv.nivel === 0 ? 'urg' : niv.nivel === 1 ? 'prox' : 'ok';
     const esVence = !a.pjn && /^VENCE:\s*/.test(a.tipo || '');
     const tipoTxt = esVence ? a.tipo.replace(/^VENCE:\s*/, '') : (a.tipo || 'Sin descripción');
-    const texto = a.pjn ? escH(tipoTxt) : audClaseTag(a) + (esVence ? '<span class="aud-vence">VENCE</span>' : '') + linkificar(escH(tipoTxt)) + (a.auto ? '<span class="aud-auto" title="Lo agenda solo el Control del detenido">· automático</span>' : '');
+    const texto = a.pjn ? escH(tipoTxt) : audClaseTag(a) + (esVence ? '<span class="aud-vence">VENCE</span>' : '') + linkificar(escH(tipoTxt)) + (a.auto === 'sae' ? `<span class="aud-auto">· llegó solo del casillero</span> <a href="#" class="aud-link" onclick="event.preventDefault();event.stopPropagation();plzDesdeNotif('${a.fecha}')" title="Abrir la calculadora con esta fecha de notificación">⏱ calcular plazo</a>`
+       : a.auto ? '<span class="aud-auto" title="Lo agenda solo el Control del detenido">· automático</span>' : '');
     const contenido = a.hecho && a.notas ? `${texto} — <span class="aud-res">${escH(a.notas)}</span>` : texto;
     const marca = a.pjn
       ? `<span class="aud-pjn-ico" title="Evento automático del sync PJN">🏛️</span>`
@@ -2745,6 +2748,13 @@ function plzLlenarTramites() {
     `<option value="${t.k}">${escH(t.l)} — ${t.d}${t.alt ? '/' + t.alt : ''} días ${t.c ? 'corridos' : 'hábiles'}</option>`
   ).join('') + '<option value="otro">Otro plazo (lo cargo yo)</option>';
   document.getElementById('plz-dif-wrap').style.display = cod === 'CPPSF' ? '' : 'none';
+}
+
+// Desde un renglón "Notificado en casillero SAE": abre la calculadora con esa fecha
+function plzDesdeNotif(fechaISO) {
+  document.getElementById('plz-notif').value = fechaISO;
+  togglePlazo(true);
+  document.getElementById('plz').scrollIntoView({ block: 'nearest' });
 }
 
 function togglePlazo(abrir) {
