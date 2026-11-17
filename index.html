@@ -1938,6 +1938,24 @@ function ejeCalcular(c) {
   return { out, notas };
 }
 
+// Si en Notas está pegado el cómputo de pena (app computo-penas), toma de ahí la detención y la pena
+// para los casilleros que estén vacíos. Se guardan al tocar Guardar.
+let detTomadoDeNotas = false;
+function detDesdeNotas() {
+  detTomadoDeNotas = false;
+  const notas = document.getElementById('f-notas').value || '';
+  const f = notas.match(/Primer d[ií]a de detenci[oó]n\s*[:\t ]\s*(\d{1,2}\/\d{1,2}\/\d{4})/i);
+  const p = notas.match(/Condena impuesta:\s*(\d+)\s*a[ñn]o\(s\),\s*(\d+)\s*mes\(es\),\s*(\d+)\s*d[ií]a\(s\)/i);
+  const det = document.getElementById('det-detencion');
+  if (f && !det.value) { det.value = detAISO(f[1]); detTomadoDeNotas = true; }
+  if (p && !document.getElementById('eje-anios').value && !document.getElementById('eje-meses').value && !document.getElementById('eje-dias').value) {
+    document.getElementById('eje-anios').value = Number(p[1]) || '';
+    document.getElementById('eje-meses').value = Number(p[2]) || '';
+    document.getElementById('eje-dias').value = Number(p[3]) || '';
+    detTomadoDeNotas = true;
+  }
+}
+
 function detCargar() {
   const cd = caratulaDatos || {};
   document.getElementById('eje-anios').value = cd.pena_anios || '';
@@ -1951,6 +1969,7 @@ function detCargar() {
   document.getElementById('det-preventiva').value = detAISO(cd.fecha_preventiva);
   document.getElementById('det-ultaud').value = detAISO(cd.ult_aud_cautelar);
   document.getElementById('det-visita').value = String(cd.visita_semanas || 0);
+  detDesdeNotas();
   if (plzFeriadosTabla === null) plzCargarFeriados().then(detPreview); else detPreview();
 }
 
@@ -2025,7 +2044,8 @@ function detPreview() {
   const filas = plzFeriadosTabla === null ? [] : detCalcular(c);
   const sem = Number(document.getElementById('det-visita').value) || 0;
   if (sem) filas.push({ fecha: detMasDias(plzISO(new Date()), sem * 7), clase: 'Visita', tipo: `Visitar al detenido (cada ${sem} semanas; al tildarla se agenda la siguiente)` });
-  const notasHTML = notasEje.map(n => `<div style="color:var(--amar)">${escH(n)}</div>`).join('');
+  const notasHTML = (detTomadoDeNotas ? '<div style="color:var(--azul2)">Detención y pena tomadas del cómputo de pena que está en Notas. Tocá Guardar para que queden.</div>' : '')
+    + notasEje.map(n => `<div style="color:var(--amar)">${escH(n)}</div>`).join('');
   if (!filas.length) { el.innerHTML = notasHTML || (cod === 'CPPSF' && !eje ? '<span style="color:var(--gris3)">Cargá la fecha de detención o de la preventiva para que se agenden los controles.</span>' : ''); return; }
   el.innerHTML = '<div style="color:var(--gris3);margin-bottom:2px">Al guardar se agenda:</div>' + filas.sort((a, b) => a.fecha.localeCompare(b.fecha)).map(f =>
     `<div class="r"><span class="f">${fmtFecha(f.fecha)}</span><span><span class="aud-clase ${f.clase}">${f.clase}</span>${escH(f.tipo.replace(/^VENCE:\s*/, '').split(' · ')[0])}</span></div>`).join('') + notasHTML;
