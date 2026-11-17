@@ -308,6 +308,8 @@ th:nth-child(10),td:nth-child(10){ max-width:140px; } /* TRIBUNAL */
 .aud-clase.Preventiva { background: var(--rojo-l); color: var(--rojo); }
 .aud-clase.Audiencia { background: var(--viol-l); color: var(--viol); }
 .aud-clase.Notificación { background: var(--amar-l); color: var(--amar); }
+.aud-clase.Ejecución { background: var(--azul-l); color: var(--azul); }
+.det-grid input[type=number] { width: 33%; padding: 6px 4px; }
 .aud-auto { font-size: 10px; color: var(--gris3); margin-left: 4px; }
 .det-box { border: 1px solid var(--borde); border-radius: 6px; padding: 10px 12px; background: var(--gris); }
 .det-head { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--negro); margin-bottom: 8px; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
@@ -586,7 +588,7 @@ tbody tr:hover .nota-btn { opacity: 1; }
             </div>
           </div>
           <div class="pf"><label>Estado procesal</label>
-            <select id="f-estado">
+            <select id="f-estado" onchange="if (typeof detPreview === 'function') detPreview()">
               <option value="">—</option>
               <optgroup label="── Santa Fe (CPPSF) ──">
                 <option>IPP — Investigación Penal Preparatoria</option>
@@ -681,13 +683,25 @@ tbody tr:hover .nota-btn { opacity: 1; }
           <div class="pf aloj-extra"><label>Pabellón</label><input id="f-pabellon" placeholder="Ej: Pabellón 4"></div>
           <div class="pf full aloj-extra">
             <div class="det-box">
-              <div class="det-head">Control del detenido <small id="det-nota"></small></div>
+              <div class="det-head"><span id="det-titulo">Control del detenido</span> <small id="det-nota"></small></div>
               <div class="det-grid">
-                <div><label>Detenido desde</label><input type="date" id="det-detencion" onchange="detPreview()"></div>
-                <div><label>Preventiva dictada</label><input type="date" id="det-preventiva" onchange="detPreview()"></div>
-                <div><label title="Última audiencia en que se trataron las medidas cautelares">Últ. audiencia cautelar</label><input type="date" id="det-ultaud" onchange="detPreview()"></div>
+                <div><label id="det-lbl-det">Detenido desde</label><input type="date" id="det-detencion" onchange="detPreview()"></div>
+                <div class="det-solo-prev"><label>Preventiva dictada</label><input type="date" id="det-preventiva" onchange="detPreview()"></div>
+                <div class="det-solo-prev"><label title="Última audiencia en que se trataron las medidas cautelares">Últ. audiencia cautelar</label><input type="date" id="det-ultaud" onchange="detPreview()"></div>
+                <div class="det-solo-eje"><label>Pena (años · meses · días)</label><div style="display:flex;gap:4px">
+                  <input type="number" min="0" id="eje-anios" placeholder="años" oninput="detPreview()">
+                  <input type="number" min="0" max="11" id="eje-meses" placeholder="meses" oninput="detPreview()">
+                  <input type="number" min="0" id="eje-dias" placeholder="días" oninput="detPreview()"></div></div>
+                <div class="det-solo-eje"><label title="Define qué texto de la Ley 24.660 rige (la Ley 27.375 es del 28/07/2017)">Fecha del hecho</label><input type="date" id="eje-hecho" onchange="detPreview()"></div>
                 <div><label>Visitarlo cada</label><select id="det-visita" onchange="detPreview()">
                   <option value="0">No agendar visitas</option><option value="2">2 semanas</option><option value="4">4 semanas</option><option value="6">6 semanas</option><option value="8">8 semanas</option></select></div>
+              </div>
+              <div class="det-grid det-solo-eje" style="margin-top:8px;align-items:center">
+                <div><label title="Lo fija el servicio penitenciario; sin esta fecha no se calculan las salidas transitorias">Ingreso al período de prueba</label><input type="date" id="eje-prueba" onchange="detPreview()"></div>
+                <div style="grid-column:span 3;display:flex;gap:16px;flex-wrap:wrap;font-size:12px;padding-top:12px">
+                  <label style="display:flex;gap:5px;align-items:center;font-size:12px;color:var(--negro)"><input type="checkbox" id="eje-reinc" style="width:auto" onchange="detPreview()"> Reincidente</label>
+                  <label style="display:flex;gap:5px;align-items:center;font-size:12px;color:var(--negro)"><input type="checkbox" id="eje-excl" style="width:auto" onchange="detPreview()"> Delito excluido (art. 14 CP / art. 56 bis Ley 24.660)</label>
+                </div>
               </div>
               <div class="det-prev" id="det-prev"></div>
             </div>
@@ -841,6 +855,7 @@ tbody tr:hover .nota-btn { opacity: 1; }
         <option value="Tarea">Solo tareas</option>
         <option value="Visita">Solo visitas</option>
         <option value="cautelar">Cautelares y preventiva</option>
+        <option value="Ejecución">Ejecución de la pena</option>
         <option value="Notificación">Notificaciones del casillero</option>
       </select>
       <label style="font-size:11px;display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" id="ag-hechos" onchange="renderAgendaGral()"> Ver tildados</label>
@@ -1859,8 +1874,79 @@ function detADMY(iso) { return iso ? iso.split('-').reverse().join('/') : ''; }
 function detMasAnios(iso, n) { const [y, m, d] = iso.split('-').map(Number); return plzISO(new Date(y + n, m - 1, d)); }
 function detMasDias(iso, n) { return plzISO(plzSuma(new Date(iso + 'T00:00:00'), n)); }
 
+// ── EJECUCIÓN (cuando hay condena) ──────────────────────────────────────
+// Verificado: art. 13 CP (texto Ley 25.892): condicional a los 2/3 si la pena supera 3 años; 8 meses de prisión si es de 3 años o menos.
+//   art. 14 CP (texto Ley 27.375): no hay condicional para reincidentes ni para los delitos de su lista.
+// Ley 24.660 (Infoleg): art. 54 (s/ Ley 27.375): libertad asistida 3 meses antes del agotamiento; no para el art. 56 bis.
+//   art. 56 quater: para los del 56 bis, régimen preparatorio 1 año antes del agotamiento.
+//   art. 17 (s/ Ley 27.375): salidas transitorias según el ingreso al período de prueba (pena >10 años: 1 año; >5: 6 meses; menos: desde el ingreso).
+// Los días se cuentan igual que la app de cómputo de penas (año = 365, mes = 30; agotamiento por calendario).
+const EJE_LEY27375 = '2017-07-28';
+function detEsEjecucion(estado) { return /Ejecución Penal|Condena Firme/.test(estado || ''); }
+function ejeAgotamiento(ini, a, m, d) { const [y, mo, da] = ini.split('-').map(Number); return plzISO(new Date(y + a, mo - 1 + m, da + d)); }
+function ejeMenosMeses(iso, n) { const [y, m, d] = iso.split('-').map(Number); return plzISO(new Date(y, m - 1 - n, d)); }
+
+function ejeCalcular(c) {
+  const cd = c.caratula_datos || {};
+  const ini = detAISO(cd.fecha_detencion);
+  const a = Number(cd.pena_anios) || 0, m = Number(cd.pena_meses) || 0, d = Number(cd.pena_dias) || 0;
+  const total = a * 365 + m * 30 + d;
+  const out = [], notas = [];
+  if (!ini || !total) { notas.push('Cargá la fecha de inicio del cómputo y la pena para que se agenden los beneficios.'); return { out, notas }; }
+  const agot = ejeAgotamiento(ini, a, m, d);
+  const pena = [a && a + ' años', m && m + ' meses', d && d + ' días'].filter(Boolean).join(' y ');
+  out.push({ auto: 'ej_agot', clase: 'Ejecución', fecha: agot, tipo: `VENCE: agotamiento de la pena (${pena}, cómputo desde ${fmtFecha(ini)})` });
+
+  // Libertad condicional — art. 13 y 14 CP
+  if (cd.reincidente || cd.excluido) {
+    notas.push(`Sin libertad condicional: ${cd.reincidente ? 'reincidente' : 'delito excluido'} (art. 14 CP).`);
+  } else {
+    const corta = total <= 3 * 365;
+    const lc = detMasDias(ini, corta ? 8 * 30 : Math.ceil(total * 2 / 3));
+    const regla = corta ? '8 meses de prisión (pena de 3 años o menos)' : '2/3 de la pena (más de 3 años)';
+    out.push({ auto: 'ej_lc_aviso', clase: 'Ejecución', fecha: detMasDias(lc, -30), tipo: `Faltan 30 días para el requisito temporal de la libertad condicional: preparar el pedido · art. 13 CP · ${regla} · ${fmtFecha(lc)}` });
+    out.push({ auto: 'ej_lc', clase: 'Ejecución', fecha: lc, tipo: `Requisito temporal de la libertad condicional cumplido · art. 13 CP · ${regla} · además exige conducta e informes` });
+  }
+
+  // Libertad asistida / régimen preparatorio — arts. 54 y 56 quater Ley 24.660
+  const hecho = detAISO(cd.ejec_fecha_hecho);
+  if (!hecho) {
+    notas.push('Cargá la fecha del hecho: define si rige la Ley 27.375 para la libertad asistida.');
+  } else if (hecho < EJE_LEY27375) {
+    notas.push('Hecho anterior al 28/07/2017: para la libertad asistida rige el texto anterior de la Ley 24.660 (no verificado), no se agenda.');
+  } else if (cd.excluido) {
+    const rp = detMasAnios(agot, -1);
+    out.push({ auto: 'ej_la_aviso', clase: 'Ejecución', fecha: detMasDias(rp, -30), tipo: `Faltan 30 días para el régimen preparatorio para la liberación · art. 56 quater Ley 24.660 · 1 año antes del agotamiento (${fmtFecha(rp)})` });
+    out.push({ auto: 'ej_la', clase: 'Ejecución', fecha: rp, tipo: `Régimen preparatorio para la liberación: 1 año antes del agotamiento · art. 56 quater Ley 24.660` });
+  } else {
+    const la = ejeMenosMeses(agot, 3);
+    out.push({ auto: 'ej_la_aviso', clase: 'Ejecución', fecha: detMasDias(la, -30), tipo: `Faltan 30 días para la libertad asistida: preparar el pedido · art. 54 Ley 24.660 (s/ Ley 27.375) · 3 meses antes del agotamiento (${fmtFecha(la)})` });
+    out.push({ auto: 'ej_la', clase: 'Ejecución', fecha: la, tipo: `Libertad asistida: 3 meses antes del agotamiento · art. 54 Ley 24.660 (s/ Ley 27.375) · además exige conducta` });
+  }
+
+  // Salidas transitorias — art. 17 Ley 24.660
+  const prueba = detAISO(cd.ingreso_prueba);
+  if (cd.excluido) {
+    notas.push('Sin salidas transitorias: delito del art. 56 bis Ley 24.660.');
+  } else if (prueba) {
+    const st = total > 10 * 365 ? detMasAnios(prueba, 1) : total > 5 * 365 ? ejeMenosMeses(prueba, -6) : prueba;
+    const regla = total > 10 * 365 ? '1 año desde el ingreso al período de prueba' : total > 5 * 365 ? '6 meses desde el ingreso al período de prueba' : 'desde el ingreso al período de prueba';
+    out.push({ auto: 'ej_st', clase: 'Ejecución', fecha: st, tipo: `Requisito temporal de salidas transitorias cumplido · art. 17 Ley 24.660 · ${regla} · además exige conducta e informes` });
+  } else {
+    notas.push('Salidas transitorias: cargá el ingreso al período de prueba para calcularlas.');
+  }
+  return { out, notas };
+}
+
 function detCargar() {
   const cd = caratulaDatos || {};
+  document.getElementById('eje-anios').value = cd.pena_anios || '';
+  document.getElementById('eje-meses').value = cd.pena_meses || '';
+  document.getElementById('eje-dias').value = cd.pena_dias || '';
+  document.getElementById('eje-hecho').value = detAISO(cd.ejec_fecha_hecho) || detAISO(cd.fecha_hecho);
+  document.getElementById('eje-prueba').value = detAISO(cd.ingreso_prueba);
+  document.getElementById('eje-reinc').checked = !!cd.reincidente;
+  document.getElementById('eje-excl').checked = !!cd.excluido;
   document.getElementById('det-detencion').value = detAISO(cd.fecha_detencion);
   document.getElementById('det-preventiva').value = detAISO(cd.fecha_preventiva);
   document.getElementById('det-ultaud').value = detAISO(cd.ult_aud_cautelar);
@@ -1877,12 +1963,21 @@ function detVolcar() {
   set('fecha_preventiva', document.getElementById('det-preventiva').value);
   set('ult_aud_cautelar', document.getElementById('det-ultaud').value);
   set('visita_semanas', Number(document.getElementById('det-visita').value) || 0);
+  set('pena_anios', Number(document.getElementById('eje-anios').value) || 0);
+  set('pena_meses', Number(document.getElementById('eje-meses').value) || 0);
+  set('pena_dias', Number(document.getElementById('eje-dias').value) || 0);
+  set('ejec_fecha_hecho', document.getElementById('eje-hecho').value);
+  set('ingreso_prueba', document.getElementById('eje-prueba').value);
+  set('reincidente', document.getElementById('eje-reinc').checked);
+  set('excluido', document.getElementById('eje-excl').checked);
 }
 
 // Qué recordatorios corresponden según los datos de la causa
 function detCalcular(c) {
   const cd = c.caratula_datos || {};
-  if (c.privado !== 'SÍ' || c.codigo !== 'CPPSF') return [];
+  if (c.privado !== 'SÍ') return [];
+  if (detEsEjecucion(c.estado)) return c.codigo === 'Menores' ? [] : ejeCalcular(c).out;   // con condena no corre la preventiva
+  if (c.codigo !== 'CPPSF') return [];
   const out = [];
   const det = detAISO(cd.fecha_detencion), prev = detAISO(cd.fecha_preventiva);
   const ult = detAISO(cd.ult_aud_cautelar) || prev;
@@ -1908,18 +2003,32 @@ function detPreview() {
   const el = document.getElementById('det-prev'), nota = document.getElementById('det-nota');
   if (!el) return;
   const cod = document.getElementById('f-codigo').value;
-  const c = { privado: document.getElementById('f-privado').value, codigo: cod, caratula_datos: {
-    fecha_detencion: document.getElementById('det-detencion').value,
-    fecha_preventiva: document.getElementById('det-preventiva').value,
-    ult_aud_cautelar: document.getElementById('det-ultaud').value } };
-  nota.textContent = cod === 'CPPSF' ? '· se agendan solos al guardar (arts. 225 y 227 CPPSF)'
-    : '· cálculo automático solo para CPPSF: en ' + (cod || 'esta causa') + ' agendá los controles a mano (normas sin verificar)';
+  const estado = document.getElementById('f-estado').value;
+  const eje = detEsEjecucion(estado);
+  document.querySelectorAll('.det-solo-prev').forEach(e => e.style.display = eje ? 'none' : '');
+  document.querySelectorAll('.det-solo-eje').forEach(e => e.style.display = eje ? '' : 'none');
+  document.getElementById('det-titulo').textContent = eje ? 'Control de ejecución' : 'Control del detenido';
+  document.getElementById('det-lbl-det').textContent = eje ? 'Inicio del cómputo (detención)' : 'Detenido desde';
+  const v = id => document.getElementById(id).value;
+  const c = { privado: v('f-privado'), codigo: cod, estado, caratula_datos: {
+    fecha_detencion: v('det-detencion'), fecha_preventiva: v('det-preventiva'), ult_aud_cautelar: v('det-ultaud'),
+    pena_anios: v('eje-anios'), pena_meses: v('eje-meses'), pena_dias: v('eje-dias'), ejec_fecha_hecho: v('eje-hecho'),
+    ingreso_prueba: v('eje-prueba'), reincidente: document.getElementById('eje-reinc').checked, excluido: document.getElementById('eje-excl').checked } };
+  let notasEje = [];
+  if (eje) {
+    nota.textContent = cod === 'Menores' ? '· régimen de menores: agendá los controles a mano' : '· se agendan solos al guardar (arts. 13-14 CP y Ley 24.660); la preventiva ya no corre';
+    if (cod !== 'Menores') notasEje = ejeCalcular(c).notas;
+  } else {
+    nota.textContent = cod === 'CPPSF' ? '· se agendan solos al guardar (arts. 225 y 227 CPPSF)'
+      : '· cálculo automático solo para CPPSF: en ' + (cod || 'esta causa') + ' agendá los controles a mano (normas sin verificar)';
+  }
   const filas = plzFeriadosTabla === null ? [] : detCalcular(c);
   const sem = Number(document.getElementById('det-visita').value) || 0;
   if (sem) filas.push({ fecha: detMasDias(plzISO(new Date()), sem * 7), clase: 'Visita', tipo: `Visitar al detenido (cada ${sem} semanas; al tildarla se agenda la siguiente)` });
-  if (!filas.length) { el.innerHTML = cod === 'CPPSF' ? '<span style="color:var(--gris3)">Cargá la fecha de detención o de la preventiva para que se agenden los controles.</span>' : ''; return; }
+  const notasHTML = notasEje.map(n => `<div style="color:var(--amar)">${escH(n)}</div>`).join('');
+  if (!filas.length) { el.innerHTML = notasHTML || (cod === 'CPPSF' && !eje ? '<span style="color:var(--gris3)">Cargá la fecha de detención o de la preventiva para que se agenden los controles.</span>' : ''); return; }
   el.innerHTML = '<div style="color:var(--gris3);margin-bottom:2px">Al guardar se agenda:</div>' + filas.sort((a, b) => a.fecha.localeCompare(b.fecha)).map(f =>
-    `<div class="r"><span class="f">${fmtFecha(f.fecha)}</span><span><span class="aud-clase ${f.clase}">${f.clase}</span>${escH(f.tipo.replace(/^VENCE:\s*/, '').split(' · ')[0])}</span></div>`).join('');
+    `<div class="r"><span class="f">${fmtFecha(f.fecha)}</span><span><span class="aud-clase ${f.clase}">${f.clase}</span>${escH(f.tipo.replace(/^VENCE:\s*/, '').split(' · ')[0])}</span></div>`).join('') + notasHTML;
 }
 
 function detTextoVisita(c) {
@@ -1945,7 +2054,7 @@ async function detSincronizar(id, datos) {
   const { data: filas, error } = await db.from('audiencias').select('id,fecha,tipo,hecho,auto,clase').eq('causa_id', id).not('auto', 'is', null);
   if (error) throw error;
   const quiero = detCalcular(c);
-  for (const key of ['cautelar90', 'preventiva_aviso', 'preventiva_venc']) {
+  for (const key of ['cautelar90', 'preventiva_aviso', 'preventiva_venc', 'ej_agot', 'ej_lc_aviso', 'ej_lc', 'ej_la_aviso', 'ej_la', 'ej_st']) {
     const q = quiero.find(x => x.auto === key);
     const pend = filas.filter(f => f.auto === key && !f.hecho);
     const yaHecho = q && filas.some(f => f.auto === key && f.hecho && f.fecha === q.fecha);
