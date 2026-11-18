@@ -85,6 +85,63 @@ async function diagnosticar(page, etiqueta) {
   }
 }
 
+// ── Detalle de lo proveído ──────────────────────────────────────────────
+// Al abrir la novedad, el SCW muestra la lista de actuaciones con su detalle
+// en texto ("FIRMA DESPACHO · DECRETO - INCORPORESE INFORME..."). Lo leemos
+// gratis, sin IA, y lo guardamos en eventos_pjn.detalle para la agenda.
+// OJO: el repo es público, así que nunca se imprime el contenido en los logs.
+const TIPOS = { 'FIRMA DESPACHO': 'Despacho', 'ESCRITO AGREGADO': 'Escrito', 'DEO': 'Oficio' };
+const SALTEAR = /^(EVENTO|CEDULA)/i;
+
+function prolijo(txt) {
+  const orig = txt.trim().split(/\s+/);
+  const out = orig.map((w, i) => {
+    if (/\d/.test(w) || !/[AEIOUÁÉÍÓÚaeiouáéíóú]/.test(w)) return w; // siglas (RPL, SPF) y números quedan
+    const l = w.toLowerCase();
+    return i === 0 ? l.charAt(0).toUpperCase() + l.slice(1) : l;
+  });
+  return out.join(' ');
+}
+
+function leerActuaciones(texto, fechaIso) {
+  const [y, m, d] = fechaIso.split('-').map(Number);
+  const re = /Fecha:\s*(\d{1,2})\/(\d{1,2})\/(\d{4})\s*Tipo actuacion:\s*([^\t\n]+)\s*Detalle:\s*([^\t\n]+)(?:[ \t]*\n\s*(\d+)\s*\/\s*(\d+))?/g;
+  const partes = [];
+  for (const x of texto.matchAll(re)) {
+    if (+x[1] !== d || +x[2] !== m || +x[3] !== y) continue;
+    const tipo = x[4].trim();
+    if (SALTEAR.test(tipo)) continue;
+    let det = prolijo(x[5].trim().replace(/\[Presentado[^\]]*\]/i, ''));
+    if (x[6]) det += x[6] === x[7] ? ` (fs. ${x[6]})` : ` (fs. ${x[6]}-${x[7]})`;
+    partes.push(`${TIPOS[tipo.toUpperCase()] || prolijo(tipo)}: ${det}`);
+  }
+  return partes.join(' · ');
+}
+
+async function completarDetalles(page, eventos) {
+  const hace15 = new Date(Date.now() - 15 * 864e5).toISOString();
+  const recientes = eventos.filter((e) => e.fecha_orden && e.fecha_orden >= hace15);
+  if (!recientes.length) return [];
+  const { data: previos } = await supabase.from('eventos_pjn').select('id,detalle_fecha').in('id', recientes.map((e) => e.id));
+  const ya = new Map((previos || []).map((p) => [p.id, p.detalle_fecha]));
+  let leidos = 0, vacios = 0, fallas = 0;
+  const nuevos = [];
+  for (const e of recientes.slice(0, 20)) {
+    const fecha = new Date(new Date(e.fecha_orden).getTime() - 3 * 3600e3).toISOString().slice(0, 10);
+    if (ya.get(e.id) === fecha) continue;
+    try {
+      await page.goto(e.link_causa, { waitUntil: 'networkidle', timeout: 45000 });
+      const detalle = leerActuaciones(await page.locator('body').innerText(), fecha);
+      nuevos.push({ id: e.id, detalle: detalle || null, detalle_fecha: fecha });
+      detalle ? leidos++ : vacios++;
+    } catch (err) {
+      fallas++;
+    }
+  }
+  console.log(`Detalles: ${leidos} leidos, ${vacios} sin actuacion ese dia, ${fallas} fallas`);
+  return nuevos;
+}
+
 async function main() {
   const browser = await chromium.launch();
   const page = await browser.newPage();
@@ -142,8 +199,6 @@ async function main() {
     rowsData.push({ ariaLabel, texto, href });
   }
 
-  await browser.close();
-
   const eventosConDuplicados = parseEventos(rowsData);
 
   // El portal lista el mismo evento (mismo eid) mas de una vez cuando tiene
@@ -161,9 +216,22 @@ async function main() {
   const eventos = [...porId.values()];
   console.log(`Encontrados ${eventosConDuplicados.length} eventos (${eventos.length} unicos)`);
 
+  let detalles = [];
+  try {
+    detalles = await completarDetalles(page, eventos);
+  } catch (e) {
+    console.log('No se pudieron leer los detalles:', e.message);
+  }
+  await browser.close();
+
   if (eventos.length) {
     const { error } = await supabase.from('eventos_pjn').upsert(eventos, { onConflict: 'id' });
     if (error) throw error;
+  }
+  // el detalle va aparte, para no pisar con null los que no se releyeron
+  for (const d of detalles) {
+    const { error } = await supabase.from('eventos_pjn').update({ detalle: d.detalle, detalle_fecha: d.detalle_fecha }).eq('id', d.id);
+    if (error) console.log('No se pudo guardar un detalle:', error.message);
   }
 
   console.log('Sync OK');
