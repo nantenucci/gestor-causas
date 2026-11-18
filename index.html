@@ -1154,7 +1154,8 @@ async function cargarMails() {
   const hace15 = new Date(); hace15.setDate(hace15.getDate() - 15);
   const [rev, carg, lat] = await Promise.all([
     db.from('mail_ingresos').select('*').eq('estado', 'revisar').order('recibido', { ascending: false }),
-    db.from('mail_ingresos').select('*').eq('estado', 'cargado').gte('recibido', hace15.toISOString()).order('recibido', { ascending: false }).limit(60),
+    // los que mandó el estudio ya quedan en la bitácora de la causa: acá solo lo que llega
+    db.from('mail_ingresos').select('*').eq('estado', 'cargado').neq('tipo', 'enviado').gte('recibido', hace15.toISOString()).order('recibido', { ascending: false }).limit(60),
     db.from('mail_controles').select('creado,ok,detalle').order('creado', { ascending: false }).limit(1),
   ]);
   if (rev.error || carg.error) { body.innerHTML = `<div class="ag-vacio">No se pudo cargar: ${escH((rev.error || carg.error).message)}</div>`; return; }
@@ -1179,11 +1180,20 @@ async function cargarMails() {
       <div>${escH(m.resumen || '')}</div>${acc}</div>`;
   };
   const r = rev.data || [], k = carg.data || [];
+  // lo ya visto (en esta compu) queda plegado: se muestra solo lo nuevo desde la última vez
+  let visto = null;
+  try { visto = localStorage.getItem('ml_visto'); localStorage.setItem('ml_visto', new Date().toISOString()); } catch (e) {}
+  const nuevos = visto ? k.filter(m => (m.recibido || '') > visto) : k;
+  const viejos = visto ? k.filter(m => (m.recibido || '') <= visto) : [];
   body.innerHTML =
     `<div class="ml-sec">Por revisar (${r.length}) — no se encontró la causa</div>` +
     (r.length ? r.map(m => item(m, true)).join('') : '<div class="ag-vacio" style="padding:12px">Nada para revisar.</div>') +
-    `<div class="ml-sec">Cargados solos en la agenda (últimos 15 días)</div>` +
-    (k.length ? k.map(m => item(m, false)).join('') : '<div class="ag-vacio" style="padding:12px">Todavía no entró ninguno.</div>');
+    `<div class="ml-sec">Nuevos cargados solos en la agenda (${nuevos.length})</div>` +
+    (nuevos.length ? nuevos.map(m => item(m, false)).join('') : `<div class="ag-vacio" style="padding:12px">${k.length ? 'Nada nuevo desde la última vez.' : 'Todavía no entró ninguno.'}</div>`) +
+    (viejos.length
+      ? `<div style="text-align:center;padding:8px"><button class="btn-sec" onclick="this.parentNode.nextElementSibling.style.display='block';this.parentNode.remove()">Ver anteriores (${viejos.length})</button></div>
+         <div style="display:none">${viejos.map(m => item(m, false)).join('')}</div>`
+      : '');
   document.getElementById('mails-n').textContent = r.length ? String(r.length) : '';
 }
 async function mlAsignar(id) {
