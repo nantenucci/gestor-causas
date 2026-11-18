@@ -2606,6 +2606,7 @@ function mostrarEventosPjn() {
           <div class="al-cuij">${escH(ev.expediente)}</div>
           <div class="al-causa">${escH((ev.caratula || '').substring(0, 70))}</div>
           <div class="al-det">${escH(ev.tipo_evento || 'Evento')} · ${escH(ev.fecha_label || '')}</div>
+          ${ev.detalle && ev.detalle_fecha === localDateFromTs(ev.fecha_orden) ? `<div class="al-det" style="color:var(--negro)">${escH(ev.detalle)}</div>` : ''}
         </div>
       </div>`).join('')
     : '<div style="text-align:center;padding:40px 20px;color:var(--gris3);font-size:14px">Sin novedades del PJN todavía.</div>';
@@ -2733,17 +2734,39 @@ function linkificar(textoEscapado) {
   });
 }
 
+// El mail "Novedad en expediente FRO…" queda pendiente hasta ver qué se proveyó.
+// Si el sync PJN ya trajo el detalle de ese día, se tacha solo con ese texto.
+async function pjnTacharMails(pjn) {
+  const conDetalle = pjn.filter(p => p.detalle);
+  if (!conDetalle.length) return;
+  const cambios = [];
+  for (const a of audiencias) {
+    if (a.hecho || a.auto !== 'mail' || !/novedad en (el )?expediente/i.test(a.tipo || '')) continue;
+    const del = conDetalle.filter(p => p.fecha === a.fecha);
+    if (!del.length) continue;
+    a.hecho = true;
+    a.notas = del.map(p => p.detalle).join(' · ');
+    cambios.push(a);
+  }
+  if (!cambios.length) return;
+  for (const a of cambios) await db.from('audiencias').update({ hecho: true, notas: a.notas }).eq('id', a.id);
+  renderAudiencias();
+}
+
 function renderAudiencias() {
   const lista = document.getElementById('aud-list');
   const causa = causas.find(c => c.id === causaId);
   const pjn = eventosPjnDeCausa(causa)
     .map(ev => ({
       id: 'pjn-' + ev.id, pjn: true, hecho: false,
-      fecha: localDateFromTs(ev.fecha_orden),
-      tipo: `${ev.tipo_evento || 'Evento'} (PJN)`,
+      fecha: localDateFromTs(ev.fecha_orden), tipoEv: ev.tipo_evento || 'Evento',
+      // si el sync ya leyó lo proveído ese día, se muestra eso en vez de "Despacho (PJN)"
+      detalle: ev.detalle && ev.detalle_fecha === localDateFromTs(ev.fecha_orden) ? ev.detalle : null,
       link: ev.link_causa || null,
     }))
+    .map(a => ({ ...a, tipo: a.detalle || `${a.tipoEv} (PJN)` }))
     .filter(a => a.fecha);
+  pjnTacharMails(pjn);
   const todas = [...audiencias, ...pjn];
   if (!todas.length) {
     lista.innerHTML = '<div style="font-size:11px;color:var(--gris3);padding:8px 10px">Sin eventos cargados.</div>';
