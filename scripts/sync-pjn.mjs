@@ -91,7 +91,7 @@ async function diagnosticar(page, etiqueta) {
 // gratis, sin IA, y lo guardamos en eventos_pjn.detalle para la agenda.
 // OJO: el repo es público, así que nunca se imprime el contenido en los logs.
 const TIPOS = { 'FIRMA DESPACHO': 'Despacho', 'ESCRITO AGREGADO': 'Escrito', 'DEO': 'Oficio' };
-const SALTEAR = /^(EVENTO|CEDULA)/i;
+const SALTEAR = /^EVENTO/i;
 
 function prolijo(txt) {
   const orig = txt.trim().split(/\s+/);
@@ -106,16 +106,21 @@ function prolijo(txt) {
 function leerActuaciones(texto, fechaIso) {
   const [y, m, d] = fechaIso.split('-').map(Number);
   const re = /Fecha:\s*(\d{1,2})\/(\d{1,2})\/(\d{4})\s*Tipo actuacion:\s*([^\t\n]+)\s*Detalle:\s*([^\t\n]+)(?:[ \t]*\n\s*(\d+)\s*\/\s*(\d+))?/g;
-  const partes = [];
+  const partes = [], cedulas = [];
   for (const x of texto.matchAll(re)) {
     if (+x[1] !== d || +x[2] !== m || +x[3] !== y) continue;
     const tipo = x[4].trim();
     if (SALTEAR.test(tipo)) continue;
-    let det = prolijo(x[5].trim().replace(/\[Presentado[^\]]*\]/i, ''));
+    if (/^CEDULA/i.test(tipo)) {   // la cédula solo se muestra si no hay nada más ese día
+      const h = x[5].match(/NOTIFICADO EL DIA:\s*(\d{2})\/(\d{2})\/\d{4}\s*(\d{1,2}:\d{2})?/i);
+      cedulas.push(h ? `Cédula notificada el ${h[1]}/${h[2]}${h[3] ? ' ' + h[3] : ''}` : 'Cédula notificada');
+      continue;
+    }
+    let det = prolijo(x[5].trim().replace(/\[Presentado[^\]]*\]/i, '').replace(/:?\s*\d{7,}\s*-?/g, ' ').replace(/\s+/g, ' '));
     if (x[6]) det += x[6] === x[7] ? ` (fs. ${x[6]})` : ` (fs. ${x[6]}-${x[7]})`;
     partes.push(`${TIPOS[tipo.toUpperCase()] || prolijo(tipo)}: ${det}`);
   }
-  return partes.join(' · ');
+  return (partes.length ? partes : [...new Set(cedulas)]).join(' · ');
 }
 
 async function completarDetalles(page, eventos) {
