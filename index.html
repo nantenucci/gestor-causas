@@ -2758,6 +2758,7 @@ function renderAudiencias() {
     const tipoTxt = esVence ? a.tipo.replace(/^VENCE:\s*/, '') : (a.tipo || 'Sin descripción');
     const texto = a.pjn ? escH(tipoTxt) : audClaseTag(a) + (esVence ? '<span class="aud-vence">VENCE</span>' : '') + linkificar(escH(tipoTxt)) + (a.auto === 'sae' ? `<span class="aud-auto">· llegó solo del casillero</span> <a href="#" class="aud-link" onclick="event.preventDefault();event.stopPropagation();plzDesdeNotif('${a.fecha}')" title="Abrir la calculadora con esta fecha de notificación">⏱ calcular plazo</a>`
        : a.auto === 'claude' ? '<span class="aud-auto" title="Lo anotó Claude al hacer la tarea">· anotado por Claude</span>'
+       : a.auto === 'enviado' ? '<span class="aud-auto" title="Salió de un mail que mandaste desde weblegal">· mail enviado</span>'
        : a.auto ? '<span class="aud-auto" title="Lo agenda solo el Control del detenido">· automático</span>' : '');
     const contenido = a.hecho && a.notas ? `${texto} — <span class="aud-res">${escH(a.notas)}</span>` : texto;
     const marca = a.pjn
