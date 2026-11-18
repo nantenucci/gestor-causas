@@ -1208,8 +1208,11 @@ async function mlAsignar(id) {
     id: 'mail-' + id + '-' + i, causa_id: c.id, fecha: iso(e.fecha), clase: 'Audiencia', hecho: false, auto: 'mail',
     tipo: [e.hora, e.descripcion].filter(Boolean).join(' ') + (e.lugar ? ' · ' + e.lugar : '') + ' · por mail',
   }));
-  if (!filas.length) filas.push({ id: 'mail-' + id, causa_id: c.id, fecha: (m.recibido || new Date().toISOString()).slice(0, 10),
-    clase: 'Notificación', hecho: false, auto: 'mail', tipo: 'Mail: ' + (m.resumen || m.asunto || '') });
+  const resumen = (m.resumen || m.asunto || '').replace(/ \((¿cuál\?|también podría ser:)[^)]*\)$/, '');
+  if (m.tipo === 'enviado') filas.push({ id: 'env-' + id, causa_id: c.id, fecha: (m.recibido || new Date().toISOString()).slice(0, 10),
+    clase: 'Tarea', hecho: true, auto: 'enviado', tipo: resumen });
+  else if (!filas.length) filas.push({ id: 'mail-' + id, causa_id: c.id, fecha: (m.recibido || new Date().toISOString()).slice(0, 10),
+    clase: 'Notificación', hecho: false, auto: 'mail', tipo: 'Mail: ' + resumen });
   const a = await db.from('audiencias').upsert(filas, { onConflict: 'id', ignoreDuplicates: true });
   if (a.error) { toast('Error: ' + a.error.message, 'err'); return; }
   const u = await db.from('mail_ingresos').update({ causa_id: c.id, estado: 'cargado' }).eq('id', id);
