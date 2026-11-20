@@ -304,6 +304,15 @@ th:nth-child(10),td:nth-child(10){ max-width:140px; } /* TRIBUNAL */
 .aud-item.aud-pjn .aud-tipo { color: var(--azul2); }
 .aud-item.aud-pjn .aud-tipo.link { cursor: pointer; }
 .aud-item.aud-pjn .aud-tipo.link:hover { text-decoration: underline; }
+.ps-title .bit-btn { float: right; margin-top: -4px; text-transform: none; letter-spacing: 0; font-size: 11px; font-weight: 500; color: var(--azul2); background: #fff; border: 1px solid var(--azul2); border-radius: 4px; padding: 3px 8px; cursor: pointer; }
+.ps-title .bit-btn:hover { background: var(--azul-l); }
+.bit-prop { border: 1px solid var(--azul2); background: var(--azul-l); border-radius: 6px; padding: 10px 12px; margin-bottom: 10px; font-size: 12px; display: none; }
+.bit-prop.open { display: block; }
+.bit-prop .bit-fila { display: grid; grid-template-columns: 18px 130px 1fr; gap: 6px; align-items: center; margin-top: 6px; }
+.bit-prop input { border: 1px solid var(--borde); border-radius: 4px; padding: 5px 8px; font-family: var(--sans); font-size: 11px; background: #fff; outline: none; }
+.bit-prop .bit-nota { font-size: 10px; color: var(--gris3); margin: 2px 0 0 154px; }
+.bit-prop .bit-aviso { background: var(--rojo-l); color: var(--rojo); border-radius: 4px; padding: 5px 8px; margin-top: 6px; font-weight: 600; }
+.bit-prop .bit-acc { display: flex; gap: 6px; justify-content: flex-end; margin-top: 10px; }
 .aud-nueva { display: grid; grid-template-columns: 140px 1fr auto; gap: 6px; margin-top: 6px; }
 .aud-nueva input { border: 1px solid var(--borde); border-radius: 4px; padding: 6px 8px; font-family: var(--sans); font-size: 11px; background: #fff; outline: none; }
 .aud-nueva input:focus { border-color: var(--azul2); }
@@ -744,7 +753,9 @@ tbody tr:hover .nota-btn { opacity: 1; }
       </div>
 
       <div class="ps full-col">
-        <div class="ps-title">Agenda</div>
+        <div class="ps-title">Agenda <button class="bit-btn" onclick="document.getElementById('doc-bitacora').click()" title="Subí un escrito, acta o resolución de esta causa y se arman los renglones de la bitácora">&#x1F4C4; Cargar desde documento</button></div>
+        <input type="file" id="doc-bitacora" accept=".pdf,.docx,.txt" style="display:none" onchange="bitacoraDesdeDocumento(event)">
+        <div class="bit-prop" id="bit-prop"></div>
         <div class="aud-list" id="aud-list"><div style="font-size:11px;color:var(--gris3)">Sin eventos cargados.</div></div>
         <div class="aud-nueva">
           <input type="date" id="aud-nueva-fecha" placeholder="Fecha">
@@ -1380,6 +1391,7 @@ function abrirCausa(id) {
   renderVinculos();
   detCargar();
   docResumen(null);
+  bitDescartar();
 }
 
 function nuevaCausa() {
@@ -1505,12 +1517,14 @@ function elegirOpcion(selectId, valor) {
 
 let trabReloj = null;
 
-function trabajando(on, archivo) {
+function trabajando(on, archivo, pasos) {
   const el = document.getElementById('trabajando');
   clearInterval(trabReloj);
   el.classList.toggle('active', on);
   if (!on) return;
   document.getElementById('trab-arch').textContent = archivo;
+  const p = pasos || ['Leer el documento', 'La IA analiza la causa', 'Completar la ficha'];
+  [...document.getElementById('trab-pasos').children].forEach((d, i) => d.textContent = `${i + 1}. ${p[i]}`);
   trabPaso(1);
   const inicio = Date.now();
   const tiempo = document.getElementById('trab-tiempo');
@@ -2795,6 +2809,7 @@ function renderAudiencias() {
     const texto = a.pjn ? escH(tipoTxt) : audClaseTag(a) + (esVence ? '<span class="aud-vence">VENCE</span>' : '') + linkificar(escH(tipoTxt)) + (a.auto === 'sae' ? `<span class="aud-auto">· llegó solo del casillero</span> <a href="#" class="aud-link" onclick="event.preventDefault();event.stopPropagation();plzDesdeNotif('${a.fecha}')" title="Abrir la calculadora con esta fecha de notificación">⏱ calcular plazo</a>`
        : a.auto === 'claude' ? '<span class="aud-auto" title="Lo anotó Claude al hacer la tarea">· anotado por Claude</span>'
        : a.auto === 'enviado' ? '<span class="aud-auto" title="Salió de un mail que mandaste desde weblegal">· mail enviado</span>'
+       : a.auto === 'documento' ? '<span class="aud-auto" title="Lo armó el Gestor leyendo un documento">· desde documento</span>'
        : a.auto ? '<span class="aud-auto" title="Lo agenda solo el Control del detenido">· automático</span>' : '');
     const contenido = a.hecho && a.notas ? `${texto} — <span class="aud-res">${escH(a.notas)}</span>` : texto;
     const marca = a.pjn
@@ -2813,6 +2828,103 @@ function renderAudiencias() {
       ${del}
     </div>`;
   }).join('');
+}
+
+// ── BITÁCORA DESDE DOCUMENTO ─────────────────────────────────────────────
+// Lee un escrito de la causa abierta y propone dos renglones: lo que pasó (hecho)
+// y el próximo paso. Los plazos legales salen de PLZ_TRAMITES (verificados), no de la IA.
+let bitProp = null;
+
+async function bitacoraDesdeDocumento(ev) {
+  const file = ev.target.files[0];
+  ev.target.value = '';
+  if (!file) return;
+  if (!causaId) { toast('Guardá la causa primero.', 'err'); return; }
+  const causa = causas.find(c => c.id === causaId) || {};
+  const cod = causa.codigo === 'CPPF' ? 'CPPF' : 'CPPSF';
+  trabajando(true, file.name, ['Leer el documento', 'La IA arma la bitácora', 'Preparar los renglones']);
+  try {
+    const texto = await leerTextoDocumento(file);
+    if (texto.replace(/\s/g, '').length < 100) throw new Error('Es una imagen escaneada: pasala por la carpeta OCR y subí el .txt');
+    trabPaso(2);
+    const hoy = plzISO(new Date());
+    const { data, error } = await db.functions.invoke('extraer-causa', {
+      body: {
+        texto, modo: 'bitacora', hoy: fmtFecha(hoy),
+        causa: { cuij: causa.cuij, caratula: causa.caratula, imputado: causa.imputado, rol: causa.rol },
+        tramites: PLZ_TRAMITES[cod].map(t => ({ k: t.k, l: t.l })),
+      },
+    });
+    if (error) { let msg = error.message; try { msg = (await error.context.json()).error || msg; } catch (_) {} throw new Error(msg); }
+    trabPaso(3);
+    if (plzFeriadosTabla === null) await plzCargarFeriados();
+
+    const fechaDoc = detAISO(data.fecha_documento) || hoy;
+    const t = PLZ_TRAMITES[cod].find(x => x.k === data.plazo_clave);
+    let prox, nota;
+    if (detAISO(data.fecha_proximo)) {
+      prox = { fecha: detAISO(data.fecha_proximo), tipo: data.proximo, clase: data.clase_proximo };
+      nota = 'Fecha que fija el documento';
+    } else if (t) {
+      const r = plzComputar(fechaDoc, t.d, t.c, cod);
+      prox = { fecha: plzISO(r.venc), clase: 'Vencimiento',
+        tipo: `VENCE: ${t.l} · ${t.art} · ${t.d} días ${t.c ? 'corridos' : 'hábiles'} · notif. ${fmtFecha(fechaDoc)}` };
+      nota = `Plazo de la calculadora contado desde el ${fmtFecha(fechaDoc)}. Si te notificaron otro día, corregí la fecha.`;
+    } else {
+      const dias = Math.min(20, Math.max(3, parseInt(data.dias_control, 10) || 10));
+      prox = { fecha: plzISO(plzComputar(fechaDoc, dias, false, cod).venc), tipo: data.proximo, clase: data.clase_proximo || 'Tarea' };
+      nota = `Control a ${dias} días hábiles del documento`;
+    }
+    if (prox.fecha < hoy) nota += ' · ojo: esa fecha ya pasó';
+    bitProp = {
+      archivo: file.name, aviso: data.aviso_otra_causa || '', nota,
+      hecho: { fecha: fechaDoc, tipo: data.hecho, clase: data.clase_hecho || 'Tarea' },
+      prox,
+    };
+    bitRender();
+  } catch (err) {
+    toast(err.message, 'err');
+  } finally {
+    trabajando(false);
+  }
+}
+
+function bitRender() {
+  const el = document.getElementById('bit-prop');
+  if (!bitProp) { el.classList.remove('open'); el.innerHTML = ''; return; }
+  const p = bitProp;
+  el.innerHTML = `
+    <div>&#x1F4C4; Leído de <b>${escH(p.archivo)}</b>. Revisá y agregá:</div>
+    ${p.aviso ? `<div class="bit-aviso">⚠ ¿Es de esta causa? ${escH(p.aviso)}</div>` : ''}
+    <div class="bit-fila"><input type="checkbox" checked disabled title="Queda como hecho">
+      <input type="date" id="bit-h-fecha" value="${p.hecho.fecha}"><input type="text" id="bit-h-tipo" value="${escH(p.hecho.tipo)}"></div>
+    <div class="bit-fila"><span class="aud-dot prox" style="margin-left:5px"></span>
+      <input type="date" id="bit-p-fecha" value="${p.prox.fecha}"><input type="text" id="bit-p-tipo" value="${escH(p.prox.tipo)}" placeholder="Sin próximo paso"></div>
+    <div class="bit-nota">${escH(p.nota)}</div>
+    <div class="bit-acc"><button class="btn-sec" onclick="bitDescartar()">Descartar</button><button class="btn-add-aud" onclick="bitAgregar()">Agregar a la bitácora</button></div>`;
+  el.classList.add('open');
+  el.scrollIntoView({ block: 'nearest' });
+}
+
+function bitDescartar() { bitProp = null; bitRender(); }
+
+async function bitAgregar() {
+  if (!bitProp || !causaId) return;
+  const v = id => document.getElementById(id).value.trim();
+  if (!v('bit-h-fecha') || !v('bit-h-tipo')) { toast('Falta la fecha o el texto de lo que pasó.', 'err'); return; }
+  const filas = [{ id: 'doc-' + uid(), causa_id: causaId, fecha: v('bit-h-fecha'), tipo: v('bit-h-tipo'), hecho: true, clase: bitProp.hecho.clase, auto: 'documento' }];
+  if (v('bit-p-tipo')) {
+    if (!v('bit-p-fecha')) { toast('Poné la fecha del próximo paso (o borrá el texto).', 'err'); return; }
+    filas.push({ id: 'doc-' + uid(), causa_id: causaId, fecha: v('bit-p-fecha'), tipo: v('bit-p-tipo'), hecho: false, clase: bitProp.prox.clase, auto: 'documento' });
+  }
+  const { error } = await db.from('audiencias').insert(filas);
+  if (error) { toast('Error: ' + error.message, 'err'); return; }
+  audiencias.push(...filas);
+  audiencias.sort((a, b) => a.fecha.localeCompare(b.fecha));
+  bitDescartar();
+  renderAudiencias();
+  actualizarProximoEvento();
+  toast(filas.length === 2 ? 'Bitácora: 2 renglones agregados ✓' : 'Bitácora: renglón agregado ✓', 'ok');
 }
 
 async function agregarAudiencia() {
