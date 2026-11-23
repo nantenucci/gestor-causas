@@ -1615,7 +1615,7 @@ function renderEscritos() {
     const tipo = /spreadsheets/.test(i.url) ? 'Planilla' : /presentation/.test(i.url) ? 'Presentación' : /drive\.google/.test(i.url) ? 'Archivo' : 'Doc';
     return `<div class="esc-item">
       <span class="esc-fecha">${i.fecha ? fmtFecha(i.fecha) : 'notas'}</span>
-      <span class="esc-desc" title="${escH(i.desc)}">${escH(i.desc)}${i.claude ? '<span class="aud-claude-tag">🤖 Claude</span>' : ''}</span>
+      <span class="esc-desc" title="${escH(i.desc)}">${escH(i.desc)}${i.claude ? '<span class="aud-claude-tag">🤖 Bot</span>' : ''}</span>
       <a href="${escH(i.url)}" target="_blank" rel="noopener noreferrer">📄 Abrir ${tipo}</a>
     </div>`;
   }).join('') + '</div>';
@@ -1701,7 +1701,7 @@ function unCard(c, rol) {
     <div>${escH(c.caratula || '—')}</div>
     <div style="font-family:var(--mono);font-size:11px">${escH(c.cuij || 'sin N°')} · id ${escH(c.id)}</div>
     <div>Estado: ${escH(c.estado || '—')}</div>
-    <div>Bitácora: <b>${n.aud}</b> renglón(es)${n.claude ? ` (${n.claude} de Claude)` : ''}</div>
+    <div>Bitácora: <b>${n.aud}</b> renglón(es)${n.claude ? ` (${n.claude} del bot)` : ''}</div>
     <div>Drive: ${c.drive ? `<a href="${escH(c.drive)}" target="_blank" rel="noopener noreferrer">abrir carpeta</a>` : '<i>sin carpeta</i>'}</div>
     <div>Notas:</div><div class="un-notas">${escH(c.notas || '(vacías)')}</div>
   </div>`;
@@ -3129,7 +3129,7 @@ function renderAudiencias() {
     const esVence = !a.pjn && /^VENCE:\s*/.test(a.tipo || '');
     const tipoTxt = esVence ? a.tipo.replace(/^VENCE:\s*/, '') : (a.tipo || 'Sin descripción');
     const texto = a.pjn ? escH(tipoTxt) : audClaseTag(a) + (esVence ? '<span class="aud-vence">VENCE</span>' : '') + linkificar(escH(tipoTxt)) + (a.auto === 'sae' ? `<span class="aud-auto">· llegó solo del casillero</span> <a href="#" class="aud-link" onclick="event.preventDefault();event.stopPropagation();plzDesdeNotif('${a.fecha}')" title="Abrir la calculadora con esta fecha de notificación">⏱ calcular plazo</a>`
-       : a.auto === 'claude' ? '<span class="aud-claude-tag" title="Lo anotó Claude al hacer la tarea">🤖 Claude</span>'
+       : a.auto === 'claude' ? '<span class="aud-claude-tag" title="Lo anotó el bot al hacer la tarea">🤖 Bot</span>'
        : a.auto === 'enviado' ? '<span class="aud-auto" title="Salió de un mail que mandaste desde weblegal">· mail enviado</span>'
        : a.auto === 'documento' ? '<span class="aud-auto" title="Lo armó el Gestor leyendo un documento">· desde documento</span>'
        : a.auto ? '<span class="aud-auto" title="Lo agenda solo el Control del detenido">· automático</span>' : '');
@@ -3269,7 +3269,7 @@ async function agregarAudiencia() {
 
 async function eliminarAudiencia(id) {
   const a = audiencias.find(x => x.id === id);
-  if (a && a.auto === 'claude' && !confirm('Este renglón lo anotó Claude. ¿Eliminarlo igual?')) return;
+  if (a && a.auto === 'claude' && !confirm('Este renglón lo anotó el bot. ¿Eliminarlo igual?')) return;
   const { error } = await db.from('audiencias').delete().eq('id', id);
   if (error) { toast('Error: ' + error.message, 'err'); return; }
   audiencias = audiencias.filter(a => a.id !== id);
