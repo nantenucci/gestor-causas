@@ -330,6 +330,34 @@ th:nth-child(10),td:nth-child(10){ max-width:140px; } /* TRIBUNAL */
 .aud-clase.Ejecución { background: var(--azul-l); color: var(--azul); }
 .det-grid input[type=number] { width: 33%; padding: 6px 4px; }
 .aud-auto { font-size: 10px; color: var(--gris3); margin-left: 4px; }
+/* Renglones que anotó Claude (auto = 'claude'): borde y fondo violeta + etiqueta */
+.aud-item.aud-claude { border-left: 3px solid #7B5EA7; background: #F7F3FC; }
+.aud-claude-tag { display: inline-block; font-size: 9px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: #fff; background: #7B5EA7; border-radius: 3px; padding: 1px 5px; margin-left: 6px; vertical-align: 1px; }
+/* Aviso de CUIJ repetido */
+.cuij-dup { margin-top: 6px; padding: 7px 10px; border-radius: 5px; background: var(--amar-l); color: var(--negro); font-size: 12px; line-height: 1.5; }
+.cuij-dup b { font-weight: 600; }
+.cuij-dup .cd-acc { display: inline-flex; gap: 6px; margin-left: 6px; }
+/* Escritos enlazados */
+.esc-list { border: 1px solid var(--borde); border-radius: 6px; overflow: hidden; }
+.esc-item { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-bottom: 1px solid var(--borde); font-size: 12px; background: #fff; }
+.esc-item:last-child { border-bottom: none; }
+.esc-fecha { font-family: var(--mono); font-size: 11px; color: var(--gris3); white-space: nowrap; }
+.esc-desc { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.esc-item a { color: var(--azul2); text-decoration: none; white-space: nowrap; }
+.esc-item a:hover { text-decoration: underline; }
+/* Unificar causas */
+.un-cols { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 10px; margin-top: 10px; }
+.un-card { border: 1px solid var(--borde); border-radius: 6px; padding: 10px 12px; font-size: 12px; line-height: 1.55; }
+.un-card.queda { border: 2px solid var(--verde); background: var(--verde-l); }
+.un-card.sobra { border: 2px solid var(--rojo); background: var(--rojo-l); }
+.un-card h4 { font-size: 10px; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 6px; }
+.un-card .un-notas { max-height: 110px; overflow-y: auto; white-space: pre-wrap; background: rgba(255,255,255,.7); border-radius: 4px; padding: 4px 6px; margin-top: 4px; font-size: 11px; }
+.un-opc { margin-top: 12px; font-size: 12px; display: grid; gap: 6px; }
+.un-opc label { display: flex; gap: 6px; align-items: flex-start; font-size: 12px; color: var(--negro); }
+.un-opc input { width: auto; margin-top: 2px; }
+#un-overlay button:disabled { opacity: .4; cursor: not-allowed; }
+.un-log { margin-top: 12px; font-size: 12px; line-height: 1.6; }
+.un-log .ok { color: var(--verde); } .un-log .err { color: var(--rojo); } .un-log .av { color: var(--amar); }
 .det-box { border: 1px solid var(--borde); border-radius: 6px; padding: 10px 12px; background: var(--gris); }
 .det-head { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--negro); margin-bottom: 8px; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
 .det-head small { font-weight: 400; text-transform: none; letter-spacing: 0; color: var(--gris3); font-size: 11px; }
@@ -565,8 +593,9 @@ tbody tr:hover .nota-btn { opacity: 1; }
                 <option>FPA</option><option>FPO</option><option>FRE</option><option>FSA</option>
                 <option>FSM</option><option>FTU</option>
               </select>
-              <input id="f-cuij-num" class="flex-1" style="font-family:var(--mono)" placeholder="Ej: 7163/2025 ó 21-09649494-4">
+              <input id="f-cuij-num" class="flex-1" style="font-family:var(--mono)" placeholder="Ej: 7163/2025 ó 21-09649494-4" oninput="cuijDupRender()">
             </div>
+            <div class="cuij-dup" id="cuij-dup" style="display:none"></div>
           </div>
           <div class="pf full"><label>Carátula</label><input id="f-caratula" placeholder="Ej: Riquelme y otros s/ Homicidio"></div>
           <div class="pf full"><label id="lbl-imputado">Imputado/s</label><input id="f-imputado" placeholder="Apellido, Nombre"></div>
@@ -786,6 +815,11 @@ tbody tr:hover .nota-btn { opacity: 1; }
       </div>
 
       <div class="ps full-col">
+        <div class="ps-title">Escritos <small style="text-transform:none;letter-spacing:0;font-weight:400">— enlaces a Google Docs que aparecen en la bitácora o en las notas</small></div>
+        <div id="esc-list"></div>
+      </div>
+
+      <div class="ps full-col">
         <div class="ps-title">Referencias</div>
         <div class="pgrid">
           <div class="pf full">
@@ -810,6 +844,7 @@ tbody tr:hover .nota-btn { opacity: 1; }
       <button class="btn-elim btn-pdf" id="btn-caratula" onclick="generarCaratula()" title="Descargar la carátula en Word para imprimir">&#x1F4CB; Carátula</button>
       <button class="btn-elim btn-pdf" onclick="document.getElementById('doc-completar').click()" title="Subí un acta o decreto de esta causa y se completan los campos vacíos">&#x1F4C4; Completar desde documento</button>
       <input type="file" id="doc-completar" accept=".pdf,.docx,.txt" style="display:none" onchange="completarDesdeDocumento(event)">
+      <button class="btn-elim btn-pdf" id="btn-unif" style="display:none" onclick="abrirUnificar()" title="Unir esta ficha con otra duplicada: primero se mueve la bitácora, después se elimina la sobrante">&#x1F500; Unificar…</button>
       <button class="btn-elim" id="btn-elim" style="display:none" onclick="eliminarCausa()">Eliminar</button>
     </div>
   </div>
@@ -917,6 +952,32 @@ tbody tr:hover .nota-btn { opacity: 1; }
     <div class="al-footer">
       <small>Clic en una novedad para abrirla en el Portal PJN</small>
       <button class="btn-ok" onclick="cerrarPjn()">Entendido</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL UNIFICAR CAUSAS -->
+<div class="al-overlay" id="un-overlay" onclick="cerrarUnificar(event)">
+  <div class="al-modal cm-modal" onclick="event.stopPropagation()">
+    <div class="al-header">
+      <div><h2>&#x1F500; Unificar causas duplicadas</h2><p>Paso 1: se mueven a la ficha que queda todos los renglones (bitácora, radicaciones, vínculos, mails, tareas, recibos). No se borra nada.<br>Paso 2: recién después, y con confirmación, se elimina la ficha sobrante.</p></div>
+      <button class="btn-x" onclick="cerrarUnificar()" style="color:var(--negro)">×</button>
+    </div>
+    <div class="al-body">
+      <div class="pf full"><label>Otra ficha (apellido, carátula o CUIJ)</label>
+        <input id="un-q" autocomplete="off" oninput="unBuscar()" placeholder="Ej: Allegranza o 21-09642060">
+        <div class="vin-res" id="un-res" style="display:none"></div>
+      </div>
+      <div id="un-sug"></div>
+      <div id="un-comp"></div>
+      <div class="un-log" id="un-log"></div>
+    </div>
+    <div class="al-footer">
+      <small id="un-pie">Elegí la otra ficha.</small>
+      <div style="display:flex;gap:8px">
+        <button class="btn-plazo" id="un-mover" onclick="unMover()" disabled>1 · Mover renglones</button>
+        <button class="btn-elim" id="un-borrar" onclick="unBorrarSobrante()" disabled>2 · Eliminar ficha sobrante</button>
+      </div>
     </div>
   </div>
 </div>
@@ -1381,6 +1442,8 @@ function abrirCausa(id) {
   mostrarAlojamiento();
   document.getElementById('btn-elim').style.display = 'inline-block';
   document.getElementById('btn-pdf').style.display  = 'inline-block';
+  document.getElementById('btn-unif').style.display = 'inline-block';
+  cuijDupRender();
   document.getElementById('overlay').classList.add('open');
   document.getElementById('plz-notif').value = '';
   togglePlazo(false);
@@ -1404,6 +1467,8 @@ function nuevaCausa() {
   document.getElementById('ph-car').textContent  = '—';
   document.getElementById('btn-elim').style.display = 'none';
   document.getElementById('btn-pdf').style.display  = 'none';
+  document.getElementById('btn-unif').style.display = 'none';
+  cuijDupRender();
   document.getElementById('overlay').classList.add('open');
   audiencias = [];
   renderAudiencias();
@@ -1423,6 +1488,12 @@ async function guardarCausa() {
   const cuij = (document.getElementById('f-prefijo').value + ' ' + document.getElementById('f-cuij-num').value).trim();
   const car  = document.getElementById('f-caratula').value.trim();
   if (!cuij.replace('CUIJ','').trim() && !car) { toast('Ingresá al menos el N° de causa o la carátula.', 'err'); return; }
+  const dups = cuijDuplicados(cuij, causaId);
+  if (dups.length) {
+    const lista = dups.map(o => '• ' + (o.imputado || '—') + ' — ' + (o.caratula || 'sin carátula')).join('\n');
+    if (!confirm('Este N° de causa ya está cargado en otra ficha:\n\n' + lista +
+      '\n\nSi es otro cliente de la misma causa, está bien. Si es la misma causa cargada dos veces, cancelá y usá "Unificar".\n\n¿Guardar igual?')) return;
+  }
 
   const datos = {
     cuij,
@@ -1474,7 +1545,13 @@ async function guardarCausa() {
 }
 
 async function eliminarCausa() {
-  if (!causaId || !confirm('¿Eliminar esta causa? No se puede deshacer.')) return;
+  if (!causaId) return;
+  const [{ count: nAud }, { count: nRad }] = await Promise.all([
+    db.from('audiencias').select('id', { count: 'exact', head: true }).eq('causa_id', causaId),
+    db.from('radicaciones').select('id', { count: 'exact', head: true }).eq('causa_id', causaId),
+  ]);
+  const arrastra = (nAud || nRad) ? `\n\nATENCIÓN: se borran también ${nAud || 0} renglón(es) de la bitácora y ${nRad || 0} radicación(es). Si es un duplicado, usá "Unificar" para conservarlos.` : '';
+  if (!confirm('¿Eliminar esta causa? No se puede deshacer.' + arrastra)) return;
   loading(true);
   const { error } = await db.from('causas').delete().eq('id', causaId);
   loading(false);
@@ -1483,6 +1560,249 @@ async function eliminarCausa() {
   document.getElementById('overlay').classList.remove('open');
   renderTabla();
   toast('Causa eliminada.', 'ok');
+}
+
+// ── CUIJ REPETIDO ────────────────────────────────────────────────────────
+// Compara solo los dígitos del N° de causa. Con menos de 6 dígitos no avisa (evita falsos positivos).
+function cuijDuplicados(cuij, exceptoId) {
+  const d = vinCuijDig(cuij);
+  if (d.length < 6) return [];
+  return causas.filter(o => o.id !== exceptoId && vinCuijDig(o.cuij) === d);
+}
+function cuijDupRender() {
+  const el = document.getElementById('cuij-dup');
+  if (!el) return;
+  const cuij = document.getElementById('f-prefijo').value + ' ' + document.getElementById('f-cuij-num').value;
+  const dups = cuijDuplicados(cuij, causaId);
+  if (!dups.length) { el.style.display = 'none'; el.innerHTML = ''; return; }
+  el.innerHTML = '⚠️ Este N° de causa ya está en ' + (dups.length === 1 ? 'otra ficha' : dups.length + ' fichas') + ':<br>' +
+    dups.map(o => `<b>${escH(o.imputado || '—')}</b> — ${escH(o.caratula || 'sin carátula')}
+      <span class="cd-acc"><button type="button" class="btn-sec" onclick="abrirCausa('${o.id}')">Ver</button>${causaId ? `<button type="button" class="btn-sec" onclick="abrirUnificar('${o.id}')">Unificar…</button>` : ''}</span>`).join('<br>') +
+    '<br><small style="color:var(--gris3)">Si es otro cliente de la misma causa, está bien así. Si es la misma causa cargada dos veces, unificalas.</small>';
+  el.style.display = 'block';
+}
+
+// ── ESCRITOS (enlaces a Google Docs) ────────────────────────────────────
+// Sin tocar el esquema: junta los enlaces a documentos que aparecen en la bitácora y en las notas.
+const ESC_RE = /https?:\/\/(?:docs\.google\.com\/(?:document|spreadsheets|presentation)\/d\/|drive\.google\.com\/(?:file\/d\/|open\?id=))[^\s<>"')\]]+/g;
+function escSinUrl(t) { return String(t || '').replace(/https?:\/\/\S+/g, '').replace(/\s*[—–\-:·|]\s*$/, '').replace(/^VENCE:\s*/, '').trim(); }
+function renderEscritos() {
+  const el = document.getElementById('esc-list');
+  if (!el) return;
+  const c = causas.find(x => x.id === causaId);
+  const vistos = new Set(), items = [];
+  const sumar = (texto, fecha, desc, claude) => {
+    for (const url of String(texto || '').match(ESC_RE) || []) {
+      const u = url.replace(/[.,;]+$/, '');
+      if (vistos.has(u)) continue;
+      vistos.add(u);
+      items.push({ url: u, fecha, desc: desc || 'Documento', claude });
+    }
+  };
+  for (const a of audiencias) {
+    sumar(a.tipo, a.fecha, escSinUrl(a.tipo), a.auto === 'claude');
+    sumar(a.notas, a.fecha, escSinUrl(a.tipo) || escSinUrl(a.notas), a.auto === 'claude');
+  }
+  if (c && c.notas) {
+    for (const linea of c.notas.split('\n')) sumar(linea, null, escSinUrl(linea) || 'En las notas de la ficha', false);
+  }
+  if (!items.length) {
+    el.innerHTML = '<div style="font-size:11px;color:var(--gris3);padding:4px 2px">Sin escritos enlazados. Pegá el enlace del Google Doc en un renglón de la bitácora o en las notas y aparece acá.</div>';
+    return;
+  }
+  items.sort((x, y) => (y.fecha || '').localeCompare(x.fecha || ''));
+  el.innerHTML = '<div class="esc-list">' + items.map(i => {
+    const tipo = /spreadsheets/.test(i.url) ? 'Planilla' : /presentation/.test(i.url) ? 'Presentación' : /drive\.google/.test(i.url) ? 'Archivo' : 'Doc';
+    return `<div class="esc-item">
+      <span class="esc-fecha">${i.fecha ? fmtFecha(i.fecha) : 'notas'}</span>
+      <span class="esc-desc" title="${escH(i.desc)}">${escH(i.desc)}${i.claude ? '<span class="aud-claude-tag">🤖 Claude</span>' : ''}</span>
+      <a href="${escH(i.url)}" target="_blank" rel="noopener noreferrer">📄 Abrir ${tipo}</a>
+    </div>`;
+  }).join('') + '</div>';
+}
+
+// ── UNIFICAR CAUSAS DUPLICADAS ───────────────────────────────────────────
+// Paso 1 mueve TODO lo que cuelga de la ficha sobrante a la que queda (UPDATE de causa_id, sin borrar).
+// Paso 2 elimina la sobrante solo si ya no le queda nada que se borraría en cascada.
+// Tablas con FK a causas (relevado 23/11/2026): audiencias y radicaciones → ON DELETE CASCADE;
+// vinculos.causa_id → CASCADE; vinculos.destino_id, tareas, mail_ingresos, eventos_pjn, sae_notificaciones → SET NULL;
+// recibos → sin acción (impide borrar).
+const UN_TABLAS = [
+  ['audiencias', 'causa_id', 'renglones de bitácora'],
+  ['radicaciones', 'causa_id', 'radicaciones'],
+  ['tareas', 'causa_id', 'tareas'],
+  ['recibos', 'causa_id', 'recibos'],
+  ['mail_ingresos', 'causa_id', 'mails judiciales'],
+  ['eventos_pjn', 'causa_id', 'eventos PJN'],
+  ['sae_notificaciones', 'causa_id', 'notificaciones SAE'],
+  ['vinculos', 'causa_id', 'vínculos (salientes)'],
+  ['vinculos', 'destino_id', 'vínculos (entrantes)'],
+];
+let unOtra = null, unQuedaId = null, unMovido = false;
+
+function abrirUnificar(otraId) {
+  if (!causaId) { toast('Guardá la causa primero.', 'err'); return; }
+  unOtra = null; unQuedaId = causaId; unMovido = false;
+  document.getElementById('un-q').value = '';
+  document.getElementById('un-res').style.display = 'none';
+  document.getElementById('un-log').innerHTML = '';
+  const actual = causas.find(c => c.id === causaId);
+  const sug = cuijDuplicados(actual && actual.cuij, causaId);
+  document.getElementById('un-sug').innerHTML = sug.length
+    ? '<div style="font-size:11px;color:var(--gris3);margin-top:8px">Fichas con el mismo N° de causa:</div>' +
+      sug.map(o => `<div class="vin-sug" style="cursor:pointer" onclick="unElegir('${o.id}')">🔁 <span style="flex:1"><b>${escH(o.imputado || '—')}</b> — ${escH(o.caratula || '')}</span><span class="btn-sec">Elegir</span></div>`).join('')
+    : '';
+  document.getElementById('un-overlay').classList.add('open');
+  if (otraId) unElegir(otraId); else unRender();
+}
+function cerrarUnificar(e) {
+  if (cerrarModal('un-overlay', e) && unMovido) { const id = unQuedaId; cargar().then(() => abrirCausa(id)); }
+}
+function unBuscar() {
+  const q = document.getElementById('un-q').value.trim().toLowerCase();
+  const res = document.getElementById('un-res');
+  if (q.length < 2) { res.style.display = 'none'; return; }
+  const qd = vinCuijDig(q);
+  const hits = causas.filter(c => c.id !== causaId && (
+      [c.caratula, c.imputado, c.cliente, c.cuij].join(' ').toLowerCase().includes(q) ||
+      (qd.length >= 4 && vinCuijDig(c.cuij).includes(qd)))).slice(0, 8);
+  res.innerHTML = hits.length ? hits.map(c => `<div onclick="unElegir('${c.id}')"><b>${escH(c.imputado || '—')}</b> — ${escH(c.caratula || '')} <span style="color:var(--gris3);font-family:var(--mono);font-size:11px">${escH(c.cuij || '')}</span></div>`).join('')
+    : '<div style="color:var(--gris3);cursor:default">Sin resultados.</div>';
+  res.style.display = 'block';
+}
+async function unElegir(id) {
+  if (unMovido) { toast('Ya se movieron los renglones. Cerrá y volvé a abrir para otra unificación.', 'err'); return; }
+  unOtra = causas.find(c => c.id === id) || null;
+  document.getElementById('un-res').style.display = 'none';
+  document.getElementById('un-log').innerHTML = '';
+  if (unOtra) document.getElementById('un-q').value = (unOtra.imputado || '') + ' — ' + (unOtra.caratula || '');
+  await unContar();
+  unRender();
+}
+function unSobraId() { return unQuedaId === causaId ? unOtra.id : causaId; }
+function unSetQueda(id) { if (!unMovido) { unQuedaId = id; unRender(); } }
+
+const unConteos = {};
+async function unContar() {
+  if (!unOtra) return;
+  for (const id of [causaId, unOtra.id]) {
+    const { count } = await db.from('audiencias').select('id', { count: 'exact', head: true }).eq('causa_id', id);
+    const { count: nc } = await db.from('audiencias').select('id', { count: 'exact', head: true }).eq('causa_id', id).eq('auto', 'claude');
+    unConteos[id] = { aud: count || 0, claude: nc || 0 };
+  }
+}
+
+function unCard(c, rol) {
+  const n = unConteos[c.id] || { aud: '?', claude: 0 };
+  return `<div class="un-card ${rol}">
+    <h4>${rol === 'queda' ? '✔ Queda' : '✕ Sobra (se elimina en el paso 2)'}</h4>
+    ${unMovido ? '' : `<label style="display:flex;gap:6px;font-size:11px;color:var(--negro);margin-bottom:6px"><input type="radio" name="un-queda" style="width:auto" ${rol === 'queda' ? 'checked' : ''} onchange="unSetQueda('${c.id}')"> Conservar esta</label>`}
+    <div><b>${escH(c.imputado || '—')}</b></div>
+    <div>${escH(c.caratula || '—')}</div>
+    <div style="font-family:var(--mono);font-size:11px">${escH(c.cuij || 'sin N°')} · id ${escH(c.id)}</div>
+    <div>Estado: ${escH(c.estado || '—')}</div>
+    <div>Bitácora: <b>${n.aud}</b> renglón(es)${n.claude ? ` (${n.claude} de Claude)` : ''}</div>
+    <div>Drive: ${c.drive ? `<a href="${escH(c.drive)}" target="_blank" rel="noopener noreferrer">abrir carpeta</a>` : '<i>sin carpeta</i>'}</div>
+    <div>Notas:</div><div class="un-notas">${escH(c.notas || '(vacías)')}</div>
+  </div>`;
+}
+
+function unRender() {
+  const comp = document.getElementById('un-comp');
+  const btnM = document.getElementById('un-mover'), btnB = document.getElementById('un-borrar'), pie = document.getElementById('un-pie');
+  if (!unOtra) { comp.innerHTML = ''; btnM.disabled = true; btnB.disabled = true; pie.textContent = 'Elegí la otra ficha.'; return; }
+  const actual = causas.find(c => c.id === causaId);
+  const queda = unQuedaId === causaId ? actual : unOtra, sobra = unQuedaId === causaId ? unOtra : actual;
+  const avisoCuij = vinCuijDig(queda.cuij) !== vinCuijDig(sobra.cuij)
+    ? '<div class="cuij-dup">⚠️ Los N° de causa son distintos. Revisá que sea realmente la misma causa antes de unificar.</div>' : '';
+  const avisoImp = norm(queda.imputado || '') !== norm(sobra.imputado || '')
+    ? '<div class="cuij-dup">⚠️ Los imputados/clientes son distintos. Si son dos clientes de la misma causa, <b>no</b> unifiques.</div>' : '';
+  comp.innerHTML = avisoCuij + avisoImp + `<div class="un-cols">${unCard(queda, 'queda')}${unCard(sobra, 'sobra')}</div>` +
+    (unMovido ? '' : `<div class="un-opc">
+      <div style="font-size:11px;color:var(--gris3)">Datos de la ficha que queda (no se cambia nada si no marcás):</div>
+      <label><input type="checkbox" id="un-notas"> Agregar al final de las notas de la que queda las notas de la sobrante</label>
+      ${sobra.drive && sobra.drive !== queda.drive ? `<label><input type="checkbox" id="un-drive"> Reemplazar el Drive de la que queda por el de la sobrante${queda.drive ? '' : ' (la que queda no tiene)'}</label>` : ''}
+    </div>`);
+  btnM.disabled = unMovido;
+  btnB.disabled = !unMovido;
+  pie.textContent = unMovido ? 'Renglones movidos. Revisá la ficha que queda antes de eliminar la sobrante.' : 'Nada se borra en el paso 1.';
+}
+
+async function unMover() {
+  if (!unOtra || unMovido) return;
+  const queda = causas.find(c => c.id === unQuedaId), sobra = causas.find(c => c.id === unSobraId());
+  if (!confirm(`Paso 1: mover todos los renglones de\n  ${sobra.imputado} — ${sobra.caratula}\na\n  ${queda.imputado} — ${queda.caratula}\n\nNo se borra nada. ¿Seguir?`)) return;
+  const log = document.getElementById('un-log');
+  const linea = (cls, t) => { log.innerHTML += `<div class="${cls}">${t}</div>`; };
+  log.innerHTML = '';
+  document.getElementById('un-mover').disabled = true;
+  loading(true);
+  try {
+    for (const [tabla, col, nombre] of UN_TABLAS) {
+      let q = db.from(tabla).update({ [col]: queda.id }).eq(col, sobra.id);
+      // un vínculo entre las dos fichas quedaría apuntando a sí misma: se deja como está
+      if (tabla === 'vinculos') q = q.or(col === 'causa_id' ? `destino_id.is.null,destino_id.neq.${queda.id}` : `causa_id.neq.${queda.id}`);
+      const { data, error } = await q.select('id');
+      if (error) { linea('err', `✕ ${nombre}: ${escH(error.message)} — se detuvo acá; lo ya movido queda movido.`); return; }
+      if (data && data.length) linea('ok', `✔ ${data.length} ${nombre} movido(s)`);
+    }
+    // cambios opcionales en la ficha que queda
+    const cambios = {};
+    const chkN = document.getElementById('un-notas'), chkD = document.getElementById('un-drive');
+    if (chkN && chkN.checked && (sobra.notas || '').trim()) {
+      const hoy = fmtFecha(agHoyISO());
+      cambios.notas = ((queda.notas || '').trim() + `\n\n— Notas traídas de la ficha unificada ${sobra.id} (${hoy}) —\n` + sobra.notas.trim()).trim();
+    }
+    if (chkD && chkD.checked) cambios.drive = sobra.drive;
+    if (Object.keys(cambios).length) {
+      cambios.updated_at = new Date().toISOString();
+      const { error } = await db.from('causas').update(cambios).eq('id', queda.id);
+      if (error) linea('err', '✕ No se pudieron actualizar notas/Drive: ' + escH(error.message));
+      else { Object.assign(queda, cambios); linea('ok', '✔ Ficha que queda actualizada (' + Object.keys(cambios).filter(k => k !== 'updated_at').join(', ') + ')'); }
+    }
+    // próxima audiencia de la que queda
+    const { data: pr } = await db.from('audiencias').select('fecha,tipo').eq('causa_id', queda.id).eq('hecho', false).order('fecha').limit(1);
+    const prox = pr && pr[0];
+    await db.from('causas').update({ prox_audiencia: prox ? prox.fecha : null, tipo: prox ? prox.tipo : '' }).eq('id', queda.id);
+    // verificación
+    const resto = await unResto(sobra.id);
+    if (resto.bloquea.length) linea('err', '✕ A la sobrante todavía le queda: ' + resto.bloquea.join(', ') + '. No se puede eliminar.');
+    else linea('ok', '✔ A la ficha sobrante no le queda bitácora ni radicaciones.');
+    if (resto.avisos.length) linea('av', '⚠ Quedan en la sobrante (al eliminarla pierden el enlace, no se borran): ' + resto.avisos.join(', '));
+    unMovido = true;
+    await unContar();
+    unRender();
+    document.getElementById('un-borrar').disabled = resto.bloquea.length > 0;
+  } finally { loading(false); }
+}
+
+async function unResto(id) {
+  const bloquea = [], avisos = [];
+  for (const [tabla, col, nombre] of UN_TABLAS) {
+    const { count } = await db.from(tabla).select('id', { count: 'exact', head: true }).eq(col, id);
+    if (!count) continue;
+    const corta = (tabla === 'audiencias' || tabla === 'radicaciones' || tabla === 'recibos');
+    (corta ? bloquea : avisos).push(`${count} ${nombre}`);
+  }
+  return { bloquea, avisos };
+}
+
+async function unBorrarSobrante() {
+  if (!unMovido) return;
+  const sobra = causas.find(c => c.id === unSobraId());
+  const resto = await unResto(sobra.id);
+  if (resto.bloquea.length) { toast('No se elimina: todavía tiene ' + resto.bloquea.join(', '), 'err'); return; }
+  if (!confirm(`Paso 2: ELIMINAR la ficha\n  ${sobra.imputado} — ${sobra.caratula}\n  (id ${sobra.id})\n\nSus renglones ya están en la otra ficha. No se puede deshacer. ¿Eliminar?`)) return;
+  loading(true);
+  const { error } = await db.from('causas').delete().eq('id', sobra.id);
+  loading(false);
+  if (error) { toast('Error al eliminar: ' + error.message, 'err'); return; }
+  const id = unQuedaId;
+  document.getElementById('un-overlay').classList.remove('open');
+  unMovido = false;
+  await cargar();
+  abrirCausa(id);
+  toast('Causas unificadas ✓', 'ok');
 }
 
 // ── NUEVA CAUSA DESDE DOCUMENTO ─────────────────────────────────────────
@@ -1576,6 +1896,7 @@ function nuevaCausaDesdeDatos(data, nombreArchivo) {
     document.getElementById('f-prefijo').value = 'CUIJ';
     elegirOpcion('f-prefijo', data.prefijo);
     document.getElementById('f-cuij-num').value   = data.numero || '';
+    cuijDupRender();
     document.getElementById('f-caratula').value   = data.caratula || '';
     document.getElementById('f-imputado').value   = data.imputado || '';
     document.getElementById('f-delito').value     = data.delito || '';
@@ -2795,6 +3116,7 @@ function renderAudiencias() {
     .filter(a => a.fecha);
   pjnTacharMails(pjn);
   const todas = [...audiencias, ...pjn];
+  renderEscritos();
   if (!todas.length) {
     lista.innerHTML = '<div style="font-size:11px;color:var(--gris3);padding:8px 10px">Sin eventos cargados.</div>';
     return;
@@ -2807,7 +3129,7 @@ function renderAudiencias() {
     const esVence = !a.pjn && /^VENCE:\s*/.test(a.tipo || '');
     const tipoTxt = esVence ? a.tipo.replace(/^VENCE:\s*/, '') : (a.tipo || 'Sin descripción');
     const texto = a.pjn ? escH(tipoTxt) : audClaseTag(a) + (esVence ? '<span class="aud-vence">VENCE</span>' : '') + linkificar(escH(tipoTxt)) + (a.auto === 'sae' ? `<span class="aud-auto">· llegó solo del casillero</span> <a href="#" class="aud-link" onclick="event.preventDefault();event.stopPropagation();plzDesdeNotif('${a.fecha}')" title="Abrir la calculadora con esta fecha de notificación">⏱ calcular plazo</a>`
-       : a.auto === 'claude' ? '<span class="aud-auto" title="Lo anotó Claude al hacer la tarea">· anotado por Claude</span>'
+       : a.auto === 'claude' ? '<span class="aud-claude-tag" title="Lo anotó Claude al hacer la tarea">🤖 Claude</span>'
        : a.auto === 'enviado' ? '<span class="aud-auto" title="Salió de un mail que mandaste desde weblegal">· mail enviado</span>'
        : a.auto === 'documento' ? '<span class="aud-auto" title="Lo armó el Gestor leyendo un documento">· desde documento</span>'
        : a.auto ? '<span class="aud-auto" title="Lo agenda solo el Control del detenido">· automático</span>' : '');
@@ -2820,7 +3142,7 @@ function renderAudiencias() {
       : (a.hecho ? `class="aud-tipo" onclick="editarResultado('${a.id}')" style="cursor:pointer" title="Click para editar el resultado"` : `class="aud-tipo"`);
     const del = a.pjn ? '' : `<button class="aud-del" onclick="eliminarAudiencia('${a.id}')" title="Eliminar">✕</button>`;
     const pjnVenc = a.pjn && niv.vencida;
-    return `<div class="aud-item ${a.hecho ? 'hecho' : ''} ${a.pjn ? 'aud-pjn' : ''} ${pjnVenc ? 'pjn-venc' : ''}">
+    return `<div class="aud-item ${a.hecho ? 'hecho' : ''} ${a.pjn ? 'aud-pjn' : ''} ${pjnVenc ? 'pjn-venc' : ''} ${a.auto === 'claude' ? 'aud-claude' : ''}">
       ${marca}
       <span class="aud-dot ${cls}"></span>
       <span class="aud-fecha ${cls}">${fmtFecha(a.fecha)}</span>
@@ -2946,6 +3268,8 @@ async function agregarAudiencia() {
 }
 
 async function eliminarAudiencia(id) {
+  const a = audiencias.find(x => x.id === id);
+  if (a && a.auto === 'claude' && !confirm('Este renglón lo anotó Claude. ¿Eliminarlo igual?')) return;
   const { error } = await db.from('audiencias').delete().eq('id', id);
   if (error) { toast('Error: ' + error.message, 'err'); return; }
   audiencias = audiencias.filter(a => a.id !== id);
