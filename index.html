@@ -843,7 +843,7 @@ tbody tr:hover .nota-btn { opacity: 1; }
               <button type="button" class="btn-sec" onclick="copiarContextoClaude()" title="Copiar los datos de la causa para pegar donde quieras">&#x29C9; Copiar datos</button>
             </div>
             <div style="font-size:10px;color:var(--gris3);margin-top:5px">
-              &#x1F4A1; Abre el proyecto <b>Antenucci Penal</b> con los datos de esta causa ya cargados. El pedido queda escrito en el cuadro de texto, sin enviarse: lo completás y lo mandás vos.
+              &#x1F4A1; Abre el proyecto <b>Antenucci Penal</b> con los datos de esta causa ya cargados. El pedido queda copiado: al abrirse Claude, pegálo con <b>Ctrl+V</b>, completálo y envialo vos.
             </div>
           </div>
           <div class="pf full"><label>Notas</label><textarea id="f-notas" placeholder="Observaciones, estrategia, pendientes..."></textarea></div>
@@ -3662,10 +3662,15 @@ function contextoClaude() {
   ].filter(Boolean).join('\n');
 }
 
-function abrirClaude(pedido) {
+async function abrirClaude(pedido) {
   const ctx = contextoClaude();
   if (!ctx) return;
   const q = ctx + '\n\n' + pedido;
+  // El deep link no siempre carga el texto, asi que lo dejamos tambien en el
+  // portapapeles: al abrir Claude alcanza con pegar con Ctrl+V.
+  let copiado = false;
+  try { await navigator.clipboard.writeText(q); copiado = true; } catch (e) {}
+  toast(copiado ? 'Pedido copiado \u2014 peg\u00e1lo con Ctrl+V en Claude' : 'Abriendo Claude\u2026', 'ok');
   window.location.href = `claude://claude.ai/project/${CLAUDE_PROYECTO}?q=${encodeURIComponent(q)}`;
 }
 
