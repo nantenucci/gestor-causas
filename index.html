@@ -833,6 +833,19 @@ tbody tr:hover .nota-btn { opacity: 1; }
               &#x1F4A1; <b>&#x2795; Nueva carpeta</b>: abre Drive en "Carpetas Clientes Activas" → creás la carpeta → copiás el link → lo pegás arriba → <b>Guardar</b>
             </div>
           </div>
+          <div class="pf full">
+            <label>Claude</label>
+            <div class="row-flex" style="flex-wrap:wrap;gap:6px">
+              <button type="button" class="btn-drive" onclick="abrirClaude('Traeme el estado al día de esta causa: revisá la memoria del proyecto, la bitácora del Gestor, los mails y la carpeta de Drive, y armá un informe pormenorizado.')" title="Informe completo de la causa">&#x1F4CB; Estado al día</button>
+              <button type="button" class="btn-drive" onclick="abrirClaude('Necesito redactar un escrito en esta causa. Antes de redactar, revisá la bitácora y el Drive por si ya existe. El escrito es: ')" title="Redactar un escrito de trámite">&#x270D;&#xFE0F; Redactar escrito</button>
+              <button type="button" class="btn-drive" onclick="abrirClaude('Calculá un plazo procesal en esta causa. Fecha de notificación: ')" title="Cómputo de plazo con feriados">&#x23F1;&#xFE0F; Calcular plazo</button>
+              <button type="button" class="btn-drive" onclick="abrirClaude('Anotá en la bitácora de esta causa lo siguiente: ')" title="Cargar un movimiento en la bitácora">&#x1F4D2; Anotar en bitácora</button>
+              <button type="button" class="btn-sec" onclick="copiarContextoClaude()" title="Copiar los datos de la causa para pegar donde quieras">&#x29C9; Copiar datos</button>
+            </div>
+            <div style="font-size:10px;color:var(--gris3);margin-top:5px">
+              &#x1F4A1; Abre el proyecto <b>Antenucci Penal</b> con los datos de esta causa ya cargados. El pedido queda escrito en el cuadro de texto, sin enviarse: lo completás y lo mandás vos.
+            </div>
+          </div>
           <div class="pf full"><label>Notas</label><textarea id="f-notas" placeholder="Observaciones, estrategia, pendientes..."></textarea></div>
         </div>
       </div>
@@ -3629,6 +3642,40 @@ function abrirDrive() {
 
 function irACarpetaRaiz() {
   window.open('https://drive.google.com/drive/u/0/folders/15zf0R8yIS81XRPe6wqijMrhMMQ4oYXN8', '_blank');
+}
+
+// ── CLAUDE ──────────────────────────────────────────────────────
+const CLAUDE_PROYECTO = '019f24b3-fa19-72cb-b533-91d255d2e8dd';
+
+function contextoClaude() {
+  if (!causaId) { toast('Primero abrí una causa guardada.', 'err'); return null; }
+  const c = causas.find(x => x.id === causaId);
+  if (!c) { toast('No encuentro la causa abierta.', 'err'); return null; }
+  const drive = (document.getElementById('f-drive').value || '').trim() || c.drive || '';
+  return [
+    `Causa: ${clienteDe(c) || c.caratula || '(sin nombre)'}`,
+    c.cuij      ? `Expediente: ${c.cuij}` : '',
+    `id de la causa en el Gestor: ${c.id}`,
+    c.tribunal  ? `Tribunal / Fiscal: ${c.tribunal}` : '',
+    c.estado    ? `Etapa: ${c.estado}` : '',
+    drive       ? `Carpeta Drive: ${drive}` : '',
+  ].filter(Boolean).join('\n');
+}
+
+function abrirClaude(pedido) {
+  const ctx = contextoClaude();
+  if (!ctx) return;
+  const q = ctx + '\n\n' + pedido;
+  window.location.href = `claude://claude.ai/project/${CLAUDE_PROYECTO}?q=${encodeURIComponent(q)}`;
+}
+
+function copiarContextoClaude() {
+  const ctx = contextoClaude();
+  if (!ctx) return;
+  navigator.clipboard.writeText(ctx).then(
+    () => toast('Datos de la causa copiados ✓', 'ok'),
+    () => toast('No pude copiar. Copialo a mano.', 'err')
+  );
 }
 
 // ── PDF ──────────────────────────────────────────────────────────────────
