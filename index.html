@@ -2349,6 +2349,26 @@ function detMasDias(iso, n) { return plzISO(plzSuma(new Date(iso + 'T00:00:00'),
 //   art. 17 (s/ Ley 27.375): salidas transitorias según el ingreso al período de prueba (pena >10 años: 1 año; >5: 6 meses; menos: desde el ingreso).
 // Los días se cuentan igual que la app de cómputo de penas (año = 365, mes = 30; agotamiento por calendario).
 const EJE_LEY27375 = '2017-07-28';
+// Red de seguridad: si la calificación cargada menciona alguno de los delitos del
+// art. 14 CP / art. 56 bis Ley 24.660 y la casilla "Delito excluido" quedó sin marcar,
+// la ficha lo avisa. Solo avisa: lo que define la exclusión es la calificación de la
+// sentencia, no la carátula, que suele arrastrar la imputación original.
+const EJE_PISTAS_EXCL = [
+  [/\bart[\wíé.]*\s*(119|120|124|125|126|127|128|130)\b|abuso sexual|integridad sexual/i, 'delitos contra la integridad sexual (art. 14 inc. 2 CP, art. 56 bis inc. 2)'],
+  [/\bart[\wíé.]*\s*80\b|homicidio agravado|femicidio/i, 'homicidio agravado (art. 14 inc. 1 CP)'],
+  [/\bart[\wíé.]*\s*16[56]\b|homicidio en ocasi[óo]n de robo/i, 'arts. 165 y 166 inc. 2 CP (art. 14 inc. 5)'],
+  [/142\s*bis|144\s*ter|\bart[\wíé.]*\s*170\b|secuestro extorsivo/i, 'arts. 142 bis, 144 ter y 170 CP (art. 14 incs. 3, 4 y 6)'],
+  [/145\s*(bis|ter)|trata de personas/i, 'arts. 145 bis y ter CP (art. 14 inc. 7)'],
+  [/41\s*quinquies|terrorismo|\bart[\wíé.]*\s*306\b/i, 'terrorismo y su financiamiento (art. 14 incs. 8 y 9)'],
+  [/23\.?737|estupefaciente/i, 'Ley 23.737: si la condena es por los arts. 5, 6 o 7, no hay condicional (art. 14 inc. 10)'],
+  [/\b86[567]\b|c[óo]digo aduanero/i, 'arts. 865 a 867 del Código Aduanero (art. 14 inc. 11)'],
+];
+function ejePistaExclusion(c) {
+  const cd = c.caratula_datos || {};
+  const txt = `${c.delito || ''} ${c.caratula || ''} ${cd.delito_detalle || ''}`;
+  const hit = EJE_PISTAS_EXCL.find(([re]) => re.test(txt));
+  return hit ? hit[1] : '';
+}
 function detEsEjecucion(estado) { return /Ejecución Penal|Condena Firme/.test(estado || ''); }
 function ejeAgotamiento(ini, a, m, d) { const [y, mo, da] = ini.split('-').map(Number); return plzISO(new Date(y + a, mo - 1 + m, da + d)); }
 function ejeMenosMeses(iso, n) { const [y, m, d] = iso.split('-').map(Number); return plzISO(new Date(y, m - 1 - n, d)); }
@@ -2363,6 +2383,11 @@ function ejeCalcular(c) {
   const agot = ejeAgotamiento(ini, a, m, d);
   const pena = [a && a + ' años', m && m + ' meses', d && d + ' días'].filter(Boolean).join(' y ');
   out.push({ auto: 'ej_agot', clase: 'Ejecución', fecha: agot, tipo: `VENCE: agotamiento de la pena (${pena}, cómputo desde ${fmtFecha(ini)})` });
+
+  if (!cd.excluido) {
+    const pista = ejePistaExclusion(c);
+    if (pista) notas.push(`Revisá la casilla "Delito excluido": la calificación menciona ${pista}. Si la condena encuadra ahí, no hay libertad condicional ni libertad asistida y corresponde el régimen preparatorio del art. 56 quater.`);
+  }
 
   // Libertad condicional — art. 13 y 14 CP
   if (cd.reincidente || cd.excluido) {
@@ -2382,9 +2407,13 @@ function ejeCalcular(c) {
   } else if (hecho < EJE_LEY27375) {
     notas.push('Hecho anterior al 28/07/2017: para la libertad asistida rige el texto anterior de la Ley 24.660 (no verificado), no se agenda.');
   } else if (cd.excluido) {
+    // art. 56 quater: ingreso 1 año antes del agotamiento y, dentro del régimen,
+    // 3 meses de preparación intramuros, 6 de salidas acompañadas y 3 sin supervisión.
     const rp = detMasAnios(agot, -1);
-    out.push({ auto: 'ej_la_aviso', clase: 'Ejecución', fecha: detMasDias(rp, -30), tipo: `Faltan 30 días para el régimen preparatorio para la liberación · art. 56 quater Ley 24.660 · 1 año antes del agotamiento (${fmtFecha(rp)})` });
-    out.push({ auto: 'ej_la', clase: 'Ejecución', fecha: rp, tipo: `Régimen preparatorio para la liberación: 1 año antes del agotamiento · art. 56 quater Ley 24.660` });
+    out.push({ auto: 'ej_rpl_aviso', clase: 'Ejecución', fecha: detMasDias(rp, -30), tipo: `Faltan 30 días para el régimen preparatorio para la liberación · art. 56 quater Ley 24.660 · 1 año antes del agotamiento (${fmtFecha(rp)}) · presentar el pedido con 2 meses de antelación (art. 15 Ley 14.243)` });
+    out.push({ auto: 'ej_rpl', clase: 'Ejecución', fecha: rp, tipo: `Régimen preparatorio para la liberación: 1 año antes del agotamiento · art. 56 quater Ley 24.660 · exige observancia de los reglamentos, informe de la dirección y pronóstico individualizado favorable` });
+    out.push({ auto: 'ej_rpl2', clase: 'Ejecución', fecha: ejeMenosMeses(agot, 9), tipo: `Régimen preparatorio, 2ª etapa: salidas con acompañamiento por 6 meses · art. 56 quater Ley 24.660 · diurnas y de hasta 12 horas` });
+    out.push({ auto: 'ej_rpl3', clase: 'Ejecución', fecha: ejeMenosMeses(agot, 3), tipo: `Régimen preparatorio, 3ª etapa: salidas sin supervisión en los últimos 3 meses · art. 56 quater Ley 24.660 · diurnas y de hasta 12 horas` });
   } else {
     const la = ejeMenosMeses(agot, 3);
     out.push({ auto: 'ej_la_aviso', clase: 'Ejecución', fecha: detMasDias(la, -30), tipo: `Faltan 30 días para la libertad asistida: preparar el pedido · art. 54 Ley 24.660 (s/ Ley 27.375) · 3 meses antes del agotamiento (${fmtFecha(la)})` });
@@ -2496,7 +2525,8 @@ function detPreview() {
   document.getElementById('det-titulo').textContent = eje ? 'Control de ejecución' : 'Control del detenido';
   document.getElementById('det-lbl-det').textContent = eje ? 'Inicio del cómputo (detención)' : 'Detenido desde';
   const v = id => document.getElementById(id).value;
-  const c = { privado: v('f-privado'), codigo: cod, estado, caratula_datos: {
+  const c = { privado: v('f-privado'), codigo: cod, estado, delito: v('f-delito'), caratula: v('f-caratula'), caratula_datos: {
+    delito_detalle: (caratulaDatos || {}).delito_detalle,
     fecha_detencion: v('det-detencion'), fecha_preventiva: v('det-preventiva'), ult_aud_cautelar: v('det-ultaud'),
     pena_anios: v('eje-anios'), pena_meses: v('eje-meses'), pena_dias: v('eje-dias'), ejec_fecha_hecho: v('eje-hecho'),
     ingreso_prueba: v('eje-prueba'), reincidente: document.getElementById('eje-reinc').checked, excluido: document.getElementById('eje-excl').checked } };
@@ -2541,7 +2571,7 @@ async function detSincronizar(id, datos) {
   const { data: filas, error } = await db.from('audiencias').select('id,fecha,tipo,hecho,auto,clase').eq('causa_id', id).not('auto', 'is', null);
   if (error) throw error;
   const quiero = detCalcular(c);
-  for (const key of ['cautelar90', 'preventiva_aviso', 'preventiva_venc', 'ej_agot', 'ej_lc_aviso', 'ej_lc', 'ej_la_aviso', 'ej_la', 'ej_st']) {
+  for (const key of ['cautelar90', 'preventiva_aviso', 'preventiva_venc', 'ej_agot', 'ej_lc_aviso', 'ej_lc', 'ej_la_aviso', 'ej_la', 'ej_rpl_aviso', 'ej_rpl', 'ej_rpl2', 'ej_rpl3', 'ej_st']) {
     const q = quiero.find(x => x.auto === key);
     const pend = filas.filter(f => f.auto === key && !f.hecho);
     const yaHecho = q && filas.some(f => f.auto === key && f.hecho && f.fecha === q.fecha);
